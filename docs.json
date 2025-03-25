@@ -71,6 +71,15 @@
       ]
     },
     {
+      "group": "Audio Visualization",
+      "pages": [
+        {
+          "title": "📊 FFT & Wave Data",
+          "href": "/visualization/audio_data"
+        }
+      ]
+    },
+    {
       "group": "Platform Specific",
       "pages": [
         {
