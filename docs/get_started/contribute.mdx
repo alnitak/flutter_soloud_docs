@@ -74,7 +74,7 @@ The `compile_wasm.sh` script uses the `-O3` code optimization flag. To see a bet
 The `AudioIsolate` [has been removed](https://github.com/alnitak/flutter_soloud/pull/89) and all the logic has been implemented natively. Events like `voice ended` are sent from C back to Dart. However, since it is not possible to call Dart from a native thread (the audio thread), a new web worker is created using the WASM `EM_ASM` directive. This allows sending the `voice ended` event back to Dart via the worker.
 
 Here a sketch to show the step used:
-![sketch](https://github.com/alnitak/flutter_soloud/raw/main/img/wasmWorker.png)
+![sketch](https://github.com/alnitak/flutter_soloud_docs/raw/main/img/wasmWorker.png)
 
 **#1.** This function is called while initializing the player with `FlutterSoLoudWeb.setDartEventCallbacks()`.
 It creates a Web Worker in the [WASM Module](https://emscripten.org/docs/api_reference/module.html) using the compiled `web/worker.dart`. After calling this, the WASM Module will have a new variable called `Module_soloud.wasmWorker` which will be used in Dart to receive messages.
