@@ -5,11 +5,13 @@ description: Learn how to stream and buffer audio data
 
 ## Overview
 
-flutter_soloud supports streaming audio data while receiving it in real-time through the [Opus](https://www.opus-codec.org/) and [Ogg](https://xiph.org/ogg/) libraries from [Xiph.org](https://www.xiph.org/). This is particularly useful when:
+*flutter_soloud* supports streaming audio data while receiving it in real-time. The supported audio data formats are raw PCM or compressed through the [Opus](https://www.opus-codec.org/) and [Ogg](https://xiph.org/ogg/) libraries from [Xiph.org](https://www.xiph.org/). This is particularly useful when:
 - Streaming audio from network sources
 - Generating audio data on-the-fly
 - Processing audio in chunks
 - Working with OpenAI or other streaming APIs
+
+The *Opus* and *Ogg* libraries are embedded by default in flutter_soloud. However, if you don't need streaming capabilities, please read the [Without Opus/Ogg](/get_started/no_opus_ogg_libs) section for how to exclude these libraries from your app.
 
 ## Buffer Stream Setup
 
@@ -17,9 +19,9 @@ Initialize an audio stream:
 
 ```dart
 final stream = SoLoud.instance.setBufferStream(
-  maxBufferSizeBytes: 1024 * 1024 * 10,    // 10MB of max buffer (not allocated)
+  maxBufferSizeBytes: 1024 * 1024 * 10,   // 10MB of max buffer (not allocated)
   bufferingType: BufferingType.preserved,
-  bufferingTimeNeeds: 2.0,            // 2 seconds buffer
+  bufferingTimeNeeds: 2.0,                // 2 seconds buffer
   sampleRate: 44100,
   channels: Channels.stereo,
   format: BufferType.s16le,

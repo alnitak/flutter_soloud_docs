@@ -102,6 +102,27 @@ SoLoud.instance.setPanAbsolute(
 - Keep volume levels reasonable to avoid audio clipping
 - Use fading for smooth transitions
 - Consider using oscillation for special effects
-- Use global volume for overall game/app volume control (or try using Limiter filter)
+- Use global volume for overall game/app volume control
 - Use individual volume control for sound balance
 - Remember that volume changes are multiplicative with global volume
+
+<Card title="Use Limiter Filter for Multiple Concurrent Sounds">
+When playing multiple sounds simultaneously, the combined volume can exceed safe levels and cause distortion. Using the Limiter filter can help prevent this:
+
+```dart
+// Initialize SoLoud
+await SoLoud.instance.init();
+
+// Enable the limiter filter
+SoLoud.instance.filters.limiterFilter.activate();
+
+// Optionally adjust limiter parameters
+// The wet parameter controls how much of the limited signal is used (0.0 to 1.0)
+SoLoud.instance.filters.limiterFilter.outputCeiling.value = -6;
+
+// Now you can safely play multiple sounds without worrying about volume spikes
+sound1.play(sound, volume: 1.0);
+sound2.play(sound, volume: 1.0);
+sound3.play(sound, volume: 1.0);
+```
+</Card>

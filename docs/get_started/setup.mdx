@@ -53,11 +53,11 @@ void main() async {
   runApp(const MyApp());
 }
 ```
+<Info>The `bufferSize` parameter affects audio latency, which generally means the time it takes from triggering a sound to the sound actually coming out of the speakers. The smaller the latency, the better, but could lead to choppy audio depending on the complexity of the audio processing. The default is 2048, but it can be adjusted to 1024 or 512.</Info>
 
 ## Best Practices
 
 - Initialize SoLoud early in your app lifecycle
 - Handle initialization errors appropriately
-- Configure buffer size based on your latency needs
+- Configure buffer size based on your latency and app needs
 - Clean up resources when your app closes
-- Consider platform-specific requirements

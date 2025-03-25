@@ -5,7 +5,7 @@ description: Configure builds without Opus and Ogg libraries to reduce binary si
 
 ## Overview
 
-The Opus and Ogg libraries are embedded by default in flutter_soloud. However, if you don't need streaming capabilities, you can exclude these libraries to reduce your app's binary size by 600~1500 KB.
+The *Opus* and *Ogg* libraries are embedded by default in flutter_soloud. However, if you don't need streaming capabilities, you can exclude these libraries to reduce your app's binary size by 600~1500 KB (depending on platform).
 
 ## Configuration Methods
 
@@ -15,7 +15,7 @@ The Opus and Ogg libraries are embedded by default in flutter_soloud. However, i
 Add to `.vscode/launch.json`:
 ```json
 {
-  "name": "Flutter debug", // and/or other configurations
+  "name": "Flutter debug", // and/or other build configurations
   "type": "dart",
   "request": "launch",
   "program": "lib/main.dart",
@@ -30,6 +30,10 @@ Add under Run/Debug Configurations:
 ```
 Environment Variables: NO_OPUS_OGG_LIBS="1"
 ```
+<Card title="Screenshot">
+![AS setup1](https://github.com/alnitak/flutter_soloud_docs/raw/main/img/AS_edit_conf1.png)
+![AS setup2](https://github.com/alnitak/flutter_soloud_docs/raw/main/img/AS_edit_conf2.png)
+</Card>
 
 #### Command Line Build
 ```bash
