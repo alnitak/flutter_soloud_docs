@@ -1,13 +1,24 @@
-# Audio Visualization
+---
+title: Audio Visualization
+description: Learn how to use audio data
+---
 
 *flutter_soloud* provides real-time audio visualization capabilities through the `AudioData` class. This allows you to access both FFT (Fast Fourier Transform) and wave data from the currently playing audio.
 
 ## Setup
 
-Before using audio visualization, you need to enable it:
+Before using audio visualization, you need to enable it. For optimal visualization performance, it's recommended to set an appropriate buffer size during initialization:
 
 ```dart
-await SoLoud.instance.init();
+// Initialize with a smaller buffer size for better visualization performance
+await SoLoud.instance.init(
+  // Default is 2048, smaller values = lower latency, it could be set also to 512.
+  // The smaller the buffer, the more likely the
+  // system hits buffer underruns (ie, the play head marches on but there's no
+  // data ready to be played) and the sound breaks down horribly. 1024 is a good
+  // compromise.
+  bufferSize: 1024,
+);
 SoLoud.instance.setVisualizationEnabled(true);
 ```
 
