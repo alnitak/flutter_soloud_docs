@@ -52,6 +52,7 @@ final stream = await SoLoud.instance.setBufferStream(
 ```
 ![released](https://github.com/user-attachments/assets/7eb57688-ab0f-4859-813f-d23fff6ca10f)
 - Frees played audio data
+- the position of the stream is always 0: `getPosition` will always return 0
 - Single playback instance only
 - Lower memory usage
 - Must be manually disposed
