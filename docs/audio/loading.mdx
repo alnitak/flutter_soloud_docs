@@ -30,7 +30,7 @@ await SoLoud.instance.disposeSource(sound);
 
 ### Listening for Handle Events
 
-You can listen for events related to playback handles using the `sound.soundEvents` stream. This allows you to react to changes such as when a sound finishes playing or is disposed.
+You can listen for events related to playback handles using the `sound.soundEvents` stream. This allows you to react to changes such as when a sound finishes playing (or stopped) or is disposed.
 
 ```dart
 sound.soundEvents.listen((event) {
