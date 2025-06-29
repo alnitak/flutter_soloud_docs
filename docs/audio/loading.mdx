@@ -28,7 +28,35 @@ final handle2 = await SoLoud.instance.play(sound);
 await SoLoud.instance.disposeSource(sound);
 ```
 
-### Automatic Cleanup
+### Listening for Handle Events
+
+You can listen for events related to playback handles using the `sound.soundEvents` stream. This allows you to react to changes such as when a sound finishes playing or is disposed.
+
+```dart
+sound.soundEvents.listen((event) {
+  debugPrint('Sound event: $event');
+});
+```
+
+Each `event` is a record containing the following:
+- `SoundEventType` – the type of event (see below)
+- `AudioSource` – the source associated with the event
+- `SoundHandle` – the handle for the specific playback instance
+
+The `SoundEventType` enum includes:
+```dart
+/// Types of sound events
+enum SoundEventType {
+  /// The handle has reached the end of playback and is no longer valid
+  handleIsNoMoreValid,
+
+  /// The audio source has been disposed
+  soundDisposed,
+}
+```
+
+
+### Listen for all handles to finish and cleanup
 
 Listen to `allInstancesFinished` to automatically dispose when all instances complete:
 
