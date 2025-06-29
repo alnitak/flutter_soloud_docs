@@ -70,7 +70,11 @@ await SoLoud.instance.play(sound);
 
 ## Loading Methods
 
+You can load audio in several ways, depending on your source and platform requirements. Below are the available methods:
+
 ### From Files
+
+Load audio directly from a file path.
 
 ```dart
 final sound = await SoLoud.instance.loadFile(
@@ -79,14 +83,30 @@ final sound = await SoLoud.instance.loadFile(
 );
 ```
 
-> [!IMPORTANT]  
-> Loading from files is not supported on Web platform. Use `loadMem()` instead when targeting web.
+<Info>Loading from files is not supported on the Web platform. Use `loadMem()` instead when targeting web.</Info>
 
-Memory modes:
-- `LoadMode.memory` - Full file in RAM (better performance)
-- `LoadMode.disk` - Stream from disk (less memory usage)
+**Memory modes:**
+- `LoadMode.memory` – Loads the entire file into RAM (better performance for small files)
+- `LoadMode.disk` – Streams from disk (lower memory usage, suitable for large files)
+
+### From Memory
+
+Load audio from a byte buffer, such as data read from a file, asset, network or self-made wav file.
+
+```dart
+final bytes = await File('sound.mp3').readAsBytes();
+final sound = await SoLoud.instance.loadMem(
+  'reference_name.mp3',
+  bytes,
+  mode: LoadMode.memory,
+);
+```
+
+<Info>When targeting the web platform, this is the recommended method to load audio files. You can load the bytes from your assets or network sources.</Info>
 
 ### From Assets
+
+Load audio from bundled assets in your Flutter project.
 
 ```dart
 final sound = await SoLoud.instance.loadAsset(
@@ -98,6 +118,8 @@ final sound = await SoLoud.instance.loadAsset(
 
 ### From Network
 
+Load audio directly from a network URL.
+
 ```dart
 final sound = await SoLoud.instance.loadUrl(
   'https://example.com/sound.mp3',
@@ -106,18 +128,8 @@ final sound = await SoLoud.instance.loadUrl(
 );
 ```
 
-### From Memory
+<Info>**Note:** When using `loadAsset` or `loadUrl`, a temporary file is created on the device. On mobile platforms, the operating system may automatically clear the cache without notice. If this happens after loading the sound but before playing it, a crash may occur because the file is no longer available. This is a known but rare issue. To prevent this, consider using `loadMem()` with `LoadMode.memory` mode.</Info>
 
-```dart
-final bytes = await File('sound.mp3').readAsBytes();
-final sound = await SoLoud.instance.loadMem(
-  'reference_name.mp3',
-  bytes,
-  mode: LoadMode.memory,
-);
-```
-
-<Info>When targeting web platform, this is the recommended method to load audio files. You can load the bytes from your assets or network sources.</Info>
 
 ## Format Support
 
