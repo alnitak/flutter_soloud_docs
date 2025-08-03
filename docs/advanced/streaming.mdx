@@ -22,7 +22,7 @@ Initialize an audio stream:
 final stream = SoLoud.instance.setBufferStream(
   maxBufferSizeBytes: 1024 * 1024 * 10,   // 10MB of max buffer (not allocated)
   bufferingType: BufferingType.preserved,
-  bufferingTimeNeeds: 2.0,                // 2 seconds buffer
+  bufferingTimeNeeds: 2.0,                // 2 seconds to buffer before unpausing
   sampleRate: 44100,
   channels: Channels.stereo,
   format: BufferType.s16le,
