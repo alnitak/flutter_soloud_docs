@@ -35,8 +35,8 @@ final stream = SoLoud.instance.setBufferStream(
 |------------------------|-------------|
 | `maxBufferSizeBytes`   | Maximum buffer size in **bytes**. When this limit is reached while adding audio data, the stream is considered ended (as if `setDataIsEnded` was called). Playback will stop at this point unless looping is enabled. Internally, all data is stored as floats, regardless of input format. This does **not** allocate memory upfront; it only limits the total data that can be added. |
 | `maxBufferSizeDuration`| Alternative to `maxBufferSizeBytes`, specifies the maximum buffer size as a duration (in seconds), calculated using `sampleRate` and `channels`. No memory is allocated upfront. |
-| `bufferingType`        | Determines how buffering works during playback. See below.<br> - `BufferingType.preserved`: Keeps all audio data in memory, allows multiple playback instances, supports seeking and looping. <br> - `BufferingType.released`: Frees memory of already played data, allows only a single playback instance, and must be manually disposed. |
-| `bufferingTimeNeeds`   | Buffering time required (in seconds). If playback reaches the end of the current buffer, it will pause and wait until enough data is buffered to cover this time. <br> **Note:** With `BufferingType.released`, the stream position is always 0; use `getStreamTimeConsumed` to get elapsed time. |
+| `bufferingType`        | Determines how buffering works during playback. See below.<br/>  `BufferingType.preserved`: Keeps all audio data in memory, allows multiple playback instances, supports seeking and looping. <br/>`BufferingType.released`: Frees memory of already played data, allows only a single playback instance, and must be manually disposed. |
+| `bufferingTimeNeeds`   | Buffering time required (in seconds). If playback reaches the end of the current buffer, it will pause and wait until enough data is buffered to cover this time. <br/> **Note:** With `BufferingType.released`, the stream position is always 0; use `getStreamTimeConsumed` to get elapsed time. |
 | `sampleRate`           | Sample rate for playback (e.g., 22050 or 44100 Hz). For `opus` format, valid values are 48000, 24000, 16000, 12000, or 8000 Hz. Incoming data is resampled to this rate. |
 | `channels`             | Number of audio channels. The `opus` format supports only mono and stereo. |
 | `format`               | Audio data format. Options: `f32le`, `s8`, `s16le`, `s32le`, or `opus` (Opus codec with Ogg container). Opus supports 48, 24, 16, 12, and 8 kHz sample rates and mono/stereo. |
@@ -66,12 +66,13 @@ final stream = await SoLoud.instance.setBufferStream(
 ```
 ![released](https://github.com/user-attachments/assets/7eb57688-ab0f-4859-813f-d23fff6ca10f)
 - Frees played audio data
-- the position of the stream is always 0
+- The position of the stream is always 0
+- The seek method is not supported
 - Single playback instance only
 - Lower memory usage
 - Must be manually disposed
 
-**WARNING**: as you can see, the position of the stream in `released` mode is always at start. This means that `getPosition` always returns 0. To get the already played time, you should use the `getStreamTimeConsumed` method instead (basically it is the current position).
+**WARNING**: as you can see, the position of the stream in `released` mode is always at start. This means that `getPosition` always returns 0. To get the already played time, you should use the `getStreamTimeConsumed` method instead (basically it is the current position). Also, `seek` is not supported in `released` mode.
 
 Please, look at the `example/lib/buffer_stream/simple_noise_stream.dart` example for a simple implementation to understand how audio stream works.
 
