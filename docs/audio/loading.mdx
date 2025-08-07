@@ -155,6 +155,17 @@ Supported audio formats:
 - Use appropriate load modes based on usage patterns
 - Implement proper error handling for all load operations
 
+When there is a need to load a bunch of audio files at once, it is recommended to use the `wait` method a a List of Future, which will perform the loading 20~40% faster.
+
+```dart
+final sounds = await [
+  SoLoud.instance.loadAsset('your/asset/sound1.mp3'),
+  SoLoud.instance.loadAsset('your/asset/sound2.mp3'),
+  SoLoud.instance.loadAsset('your/asset/sound3.mp3'),
+  [...]
+].wait;
+```
+
 ### Error Handling
 ```dart
 try {
