@@ -39,7 +39,7 @@ final stream = SoLoud.instance.setBufferStream(
 | `bufferingTimeNeeds`   | Buffering time required (in seconds). If playback reaches the end of the current buffer, it will pause and wait until enough data is buffered to cover this time. <br/> **Note:** With `BufferingType.released`, the stream position is always 0; use `getStreamTimeConsumed` to get elapsed time. |
 | `sampleRate`           | Sample rate for playback (e.g., 22050 or 44100 Hz). For `opus` format, valid values are 48000, 24000, 16000, 12000, or 8000 Hz. Incoming data is resampled to this rate. |
 | `channels`             | Number of audio channels. The `opus` format supports only mono and stereo. |
-| `format`               | Audio data format. Options: `f32le`, `s8`, `s16le`, `s32le`, or `opus` (Opus codec with Ogg container). Opus supports 48, 24, 16, 12, and 8 kHz sample rates and mono/stereo. |
+| `format`               | Audio data format. Options: `f32le`, `s8`, `s16le`, `s32le`, `mp3`, or`opus` (works also for OGG format). Opus supports 48, 24, 16, 12, and 8 kHz sample rates and mono/stereo. <br/>**Note:** for MP3s with TAGs and artwork image, all the audio data must be received before the playback is started.|
 | `onBuffering`          | Callback triggered when buffering starts (`isBuffering = true`) and ends (`isBuffering = false`). Receives the playback handle and the current buffered time (in seconds). |
 
 ### Buffering Types
@@ -82,7 +82,8 @@ Please, look at the `example/lib/buffer_stream/simple_noise_stream.dart` example
 - `s16le` - Signed 16-bit PCM (little endian)
 - `s32le` - Signed 32-bit PCM (little endian)
 - `f32le` - 32-bit float PCM (little endian)
-- `opus` - Opus codec with Ogg container
+- `mp3` - Mp3 format
+- `opus` - Opus and Ogg formats
 
 ## Adding Audio Data
 
@@ -111,7 +112,8 @@ SoLoud.instance.resetBufferStream(stream);
 
 ```dart
 // Create a WebSocket connection
-final socket = await WebSocket.connect('wss://audio-stream.example.com');
+final socket =
+    await WebSocket.connect('wss://audio-stream.example.com');
 
 // Set up the audio stream
 final stream = SoLoud.instance.setBufferStream(
@@ -126,18 +128,35 @@ final stream = SoLoud.instance.setBufferStream(
   },
 );
 
-// Start playback
+// Start the playback whenever enough data is buffered (defined by `bufferingTimeNeeds` seconds)
 final handle = await SoLoud.instance.play(stream);
 
-// Listen for audio data
-socket.listen((data) {
-  if (data is List<int>) {
-    SoLoud.instance.addAudioDataStream(
-      stream, 
-      Uint8List.fromList(data),
-    );
+// Eventually listen for the handle to finish playing.
+// `SoLoud.setDataIsEnded` must be called before this listener
+// could be emitted.
+stream.soundEvents.listen((event) {
+  if (event.event == SoundEventType.handleIsNoMoreValid &&
+      event.handle == handle) {
+    print('sound has finished playing');
   }
 });
+
+// Listen for audio data
+socket.listen(
+  (data) {
+    if (data is List<int>) {
+      SoLoud.instance.addAudioDataStream(
+        stream,
+        Uint8List.fromList(data),
+      );
+    }
+  },
+  onDone: () {
+    // Mark the stream as completed.
+    // You can then listen to the `stream.soundEvents` events
+    SoLoud.instance.setDataIsEnded(stream);
+  },
+);
 ```
 
 ## Example: PCM Generation
