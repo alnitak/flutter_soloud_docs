@@ -45,7 +45,7 @@ final stream = SoLoud.instance.setBufferStream(
 | `bufferingTimeNeeds`   | Buffering time required (in seconds). If playback reaches the end of the current buffer, it will pause and wait until enough data is buffered to cover this time. <br/> **Note:** With `BufferingType.released`, the stream position is always 0; use `getStreamTimeConsumed` to get elapsed time. |
 | `sampleRate`           | Sample rate for playback (e.g., 22050 or 44100 Hz). For `opus` format, valid values are 48000, 24000, 16000, 12000, or 8000 Hz. Incoming data is resampled to this rate. |
 | `channels`             | Number of audio channels. The `opus` format supports only mono and stereo. |
-| `format`               | Audio data format. Options: `f32le`, `s8`, `s16le`, `s32le`, or`auto` (OGG/Opus, OGG/Vorbis, or MP3 formats are automatically detected). <br/>**Note:** the `auto` autodetect MP3 and Ogg container with Opus or Vorbis.|
+| `format`               | Audio data format. Options: `f32le`, `s8`, `s16le`, `s32le`, or`auto`. <br/>**Note:** the `auto` autodetect MP3 and Ogg container with Opus or Vorbis. With this format, the `samplerate` and `channels` parameters are ignored.|
 | `onBuffering`          | Callback triggered when buffering starts (`isBuffering = true`) and ends (`isBuffering = false`). Receives the playback handle and the current buffered time (in seconds). |
 | `onMetadata`          | Callback triggered when starting to add audio data or when metadata changes while streaming. It returns a `AudioMetadata` object. |
 
