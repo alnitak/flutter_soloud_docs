@@ -5,12 +5,12 @@ description: Learn how to stream and buffer audio data
 
 ## Overview
 
-*flutter_soloud* supports streaming audio data while receiving it in real-time. The supported audio data formats are raw PCM or compressed through the [Opus](https://www.opus-codec.org/) and [Ogg](https://xiph.org/ogg/) libraries from [Xiph.org](https://www.xiph.org/). This is particularly useful when:
-- Streaming audio from network sources
+*flutter_soloud* supports streaming audio data while receiving it in real-time. The supported audio data formats are raw PCM, MP3, or compressed through the [Opus](https://www.opus-codec.org/) and [Vorbis](https://xiph.org/vorbis/) codecs with [Ogg](https://xiph.org/ogg/) container libraries from [Xiph.org](https://www.xiph.org/). This is particularly useful when:
+- Streaming audio from network sources like icecast radio
+- Working with OpenAI or other streaming APIs
 - Generating audio data on-the-fly
 - Processing audio in chunks
 - Automatically pause when buffering is needed and resume playback when enough data is available
-- Working with OpenAI or other streaming APIs
 
 The *Opus* and *Ogg* libraries are embedded by default in flutter_soloud. However, if you don't need streaming capabilities, please read the [Without Opus/Ogg](/get_started/no_opus_ogg_libs) section for how to exclude these libraries from your app.
 
@@ -21,11 +21,17 @@ Initialize an audio stream:
 ```dart
 final stream = SoLoud.instance.setBufferStream(
   maxBufferSizeBytes: 1024 * 1024 * 10,   // 10MB of max buffer (not allocated)
-  bufferingType: BufferingType.preserved,
+  bufferingType: BufferingType.preserved, // Keep all data in memory
   bufferingTimeNeeds: 2.0,                // 2 seconds to buffer before unpausing
-  sampleRate: 44100,
-  channels: Channels.stereo,
-  format: BufferType.s16le,
+  sampleRate: 44100,                      // 44100 Hz
+  channels: Channels.stereo,              // 2 channels
+  format: BufferType.auto,                // Autodetect format (not valid for raw PCM)
+  onBuffering: (isBuffering, handle, time) {
+    // Handle buffering
+  },
+  onMetadata: (metadata) {
+    // Handle metadata
+  },
 );
 ```
 
@@ -39,8 +45,9 @@ final stream = SoLoud.instance.setBufferStream(
 | `bufferingTimeNeeds`   | Buffering time required (in seconds). If playback reaches the end of the current buffer, it will pause and wait until enough data is buffered to cover this time. <br/> **Note:** With `BufferingType.released`, the stream position is always 0; use `getStreamTimeConsumed` to get elapsed time. |
 | `sampleRate`           | Sample rate for playback (e.g., 22050 or 44100 Hz). For `opus` format, valid values are 48000, 24000, 16000, 12000, or 8000 Hz. Incoming data is resampled to this rate. |
 | `channels`             | Number of audio channels. The `opus` format supports only mono and stereo. |
-| `format`               | Audio data format. Options: `f32le`, `s8`, `s16le`, `s32le`, `mp3`, or`opus` (works also for OGG format). Opus supports 48, 24, 16, 12, and 8 kHz sample rates and mono/stereo. <br/>**Note:** for MP3s with TAGs and artwork image, all the audio data must be received before the playback is started.|
+| `format`               | Audio data format. Options: `f32le`, `s8`, `s16le`, `s32le`, or`auto`. <br/>**Note:** the `auto` autodetect MP3 and Ogg container with Opus or Vorbis. With this format, the `samplerate` and `channels` parameters are ignored.|
 | `onBuffering`          | Callback triggered when buffering starts (`isBuffering = true`) and ends (`isBuffering = false`). Receives the playback handle and the current buffered time (in seconds). |
+| `onMetadata`          | Callback triggered when starting to add audio data or when metadata changes while streaming. It returns a `AudioMetadata` object. |
 
 ### Buffering Types
 
@@ -78,12 +85,21 @@ Please, look at the `example/lib/buffer_stream/simple_noise_stream.dart` example
 
 ### Supported Formats
 
+For raw PCM data, the following formats are supported:
 - `s8` - Signed 8-bit PCM
 - `s16le` - Signed 16-bit PCM (little endian)
 - `s32le` - Signed 32-bit PCM (little endian)
 - `f32le` - 32-bit float PCM (little endian)
+
+You should also need to specify the sample rate and the number of channels.
+- `auto` - Automatically detect the format
+
+Autodetected formats are:
 - `mp3` - Mp3 format
-- `opus` - Opus and Ogg formats
+- `opus` - Ogg container with Opus codec
+- `ogg` - Ogg container with Vorbis codec
+These compressed formats are supporting metadata (using the `onMetadata` callback).
+
 
 ## Adding Audio Data
 
@@ -101,7 +117,7 @@ SoLoud.instance.setDataIsEnded(stream);
 ## Buffer Management
 
 ```dart
-// Get current buffer size
+// Get current buffer size in bytes
 final size = SoLoud.instance.getBufferSize(stream);
 
 // Reset the buffer
@@ -126,9 +142,13 @@ final stream = SoLoud.instance.setBufferStream(
     // is resumed.
     print('Buffering: $isBuffering, Time: $time');
   },
+  onMetadata: (metadata) {
+    debugPrint(metadata.toString());
+  },
+  }
 );
 
-// Start the playback whenever enough data is buffered (defined by `bufferingTimeNeeds` seconds)
+// Start the the playback whenever enough data is buffered (defined by `bufferingTimeNeeds` seconds) whenever enough data is buffered (defined by `bufferingTimeNeeds` seconds)
 final handle = await SoLoud.instance.play(stream);
 
 // Eventually listen for the handle to finish playing.
@@ -159,6 +179,8 @@ socket.listen(
 );
 ```
 
+Please, look at the `example/lib/buffer_stream/web_radio.dart` example for a simple implementation to connect to an online icecast web radio or at `example/lib/buffer_stream/websocket.dart` example to connect to a WebSocket server (please read the note at the beginning).
+
 ## Example: PCM Generation
 
 ```dart
@@ -187,6 +209,8 @@ Future<AudioSource> generatePCM() async {
   return pcmStream;
 }
 ```
+
+
 
 ## Best Practices
 
