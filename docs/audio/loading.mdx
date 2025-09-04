@@ -155,7 +155,7 @@ Supported audio formats:
 - Use appropriate load modes based on usage patterns
 - Implement proper error handling for all load operations
 
-When there is a need to load a bunch of audio files at once, it is recommended to use the `wait` method a a List of Future, which will perform the loading 20~40% faster.
+When you need to load multiple audio files at once, it is recommended to use the `wait` method in a Future list, which will load 20 to 40% faster.
 
 ```dart
 final sounds = await [
