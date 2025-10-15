@@ -9,18 +9,18 @@ description: Learn how to use audio effects and filters
 
 ## Available Filters
 
-- `echo` - Echo/delay effect
-- `freeverbFilter` - High quality reverb effect
-- `biquadResonant` - Multi-mode filter (lowpass, highpass, bandpass)
-- `bassboost` - Low frequency enhancement
-- `equalizer` - Multi-band equalizer
-- `pitchShifter` - Change pitch without affecting speed
-- `flanger` - Classic modulation effect
-- `waveShaper` - Audio distortion/wave shaping
-- `limiter` - Peak volume control
-- `compressor` - Dynamic range compression
-- `lofi` - Bit depth and sample rate reduction
-- `robotize` - Voice modulation effect
+- `echo` - Echo/delay effect [SoLoud documentation](https://solhsa.com/soloud/echofilter.html)
+- `freeverbFilter` - High quality reverb effect [SoLoud documentation](https://solhsa.com/soloud/freeverbfilter.html)
+- `biquadResonant` - Multi-mode filter (lowpass, highpass, bandpass) [SoLoud documentation](https://solhsa.com/soloud/biquadfilter.html)
+- `bassboost` - Low frequency enhancement [SoLoud documentation](https://solhsa.com/soloud/bassboostfilter.html)
+- `equalizer` - Multi-band equalizer [SoLoud sources](https://github.com/alnitak/flutter_soloud/blob/main/src/soloud/src/filter/soloud_eqfilter.cpp)
+- `flanger` - Classic modulation effect [SoLoud documentation](https://solhsa.com/soloud/flangerfilter.html)
+- `waveShaper` - Audio distortion/wave shaping [SoLoud documentation](https://solhsa.com/soloud/waveshaperfilter.html)
+- `lofi` - Bit depth and sample rate reduction [SoLoud documentation](https://solhsa.com/soloud/lofifilter.html)
+- `robotize` - Voice modulation effect [SoLoud documentation](https://solhsa.com/soloud/robotizefilter.html)
+- `pitchShifter` - Change pitch without affecting speed [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/pitch_shift_filter.cpp#L16)
+- `compressor` - Dynamic range compression [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/compressor.cpp#L24)
+- `limiter` - Peak volume control [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/limiter.cpp#L20)
 
 <Info>
 - Individual filters for sounds are not supported on Web platform.
