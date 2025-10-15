@@ -27,6 +27,10 @@
           "href": "/get_started/logging"
         },
         {
+          "title": "🎧 Audio Context",
+          "href": "/get_started/audio_context"
+        },
+        {
           "title": "📜 License Info",
           "href": "/get_started/license"
         }

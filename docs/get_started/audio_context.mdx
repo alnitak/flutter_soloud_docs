@@ -1,0 +1,122 @@
+---
+title: Audio Context
+description: How to manage audio context and interruptions
+---
+
+`flutter_soloud` does not handle audio focus or interruptions automatically. This is delegated to other plugins like [audio_session](https://pub.dev/packages/audio_session).
+
+This page provides a guide on how to use `audio_session` to manage the audio context.
+
+## Setup
+
+First, add `audio_session` to your `pubspec.yaml`:
+
+```yaml
+dependencies:
+  audio_session: ^0.2.2
+```
+
+## Basic Usage
+
+Initialize and configure `audio_session` in your app. A good place to do this is in the `initState` of your widget.
+
+```dart
+import 'package:audio_session/audio_session.dart';
+
+// ...
+
+late final AudioSession session;
+
+@override
+void initState() {
+  super.initState();
+  AudioSession.instance.then((audioSession) async {
+    session = audioSession;
+    await session.configure(
+      const AudioSessionConfiguration(
+        androidWillPauseWhenDucked: true,
+        androidAudioAttributes: AndroidAudioAttributes(
+          usage: AndroidAudioUsage.media,
+          contentType: AndroidAudioContentType.music,
+        ),
+        androidAudioFocusGainType: AndroidAudioFocusGainType.gainTransientMayDuck,
+        avAudioSessionCategory: AVAudioSessionCategory.playback,
+        avAudioSessionCategoryOptions: AVAudioSessionCategoryOptions.none,
+      ),
+    );
+    _handleInterruptions(session);
+  });
+}
+```
+
+When you want to start to play audio, you need to activate the audio session:
+
+```dart
+await session.setActive(true);
+final handle = await SoLoud.instance.play(sound);
+```
+
+## Handling Interruptions
+
+You need to listen to interruption events to pause, resume, or duck your audio.
+
+```dart
+void _handleInterruptions(AudioSession audioSession) {
+  audioSession.becomingNoisyEventStream.listen((_) {
+    // The user unplugged headphones, so we should pause.
+    SoLoud.instance.setPause(soundHandle, true);
+  });
+
+  audioSession.interruptionEventStream.listen((event) {
+    if (event.begin) {
+      switch (event.type) {
+        case AudioInterruptionType.duck:
+          // Another app started playing audio and we should duck.
+          SoLoud.instance.fadeGlobalVolume(0.1, const Duration(milliseconds: 300));
+          break;
+        case AudioInterruptionType.pause:
+        case AudioInterruptionType.unknown:
+          // Another app started playing audio and we should pause.
+          SoLoud.instance.setPause(soundHandle, true);
+          break;
+      }
+    } else {
+      switch (event.type) {
+        case AudioInterruptionType.duck:
+          // The interruption ended and we should unduck.
+          SoLoud.instance.fadeGlobalVolume(1, const Duration(milliseconds: 300));
+          break;
+        case AudioInterruptionType.pause:
+          // The interruption ended and we should resume.
+          SoLoud.instance.setPause(soundHandle, false);
+          break;
+        case AudioInterruptionType.unknown:
+          // The interruption ended but we should not resume.
+          break;
+      }
+    }
+  });
+}
+```
+
+Please, look at the `lib/audio_context/audio_context.dart` example for a simple implementation to handle audio interruptions.
+
+<Info>
+  **iOS and Google Ads**
+
+  If you are using the `google_mobile_ads` plugin on iOS, you might encounter issues with audio playback. To solve this, you can configure the `audio_session` adding this line in `AppDelegate.swift`:
+
+  ```dart
+import GoogleMobileAds
+
+func application(_ application: UIApplication,
+                 didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+ 
+  // Add this
+  MobileAds.shared.audioVideoManager.isAudioSessionApplicationManaged = true
+
+...
+ return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+}
+  ```
+</Info>
