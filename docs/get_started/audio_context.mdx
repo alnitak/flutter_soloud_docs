@@ -3,7 +3,7 @@ title: Audio Context
 description: How to manage audio context and interruptions
 ---
 
-`flutter_soloud` does not handle audio focus or interruptions automatically. This is delegated to other plugins like [audio_session](https://pub.dev/packages/audio_session).
+`flutter_soloud` handles the playing of audio, but does not handle configuration of the OS level audio sessions and their contexts. If you wish to change the audio session away from OS defaults (for example, to always play over other apps or ignore silent mode), we recommend [audio_session](https://pub.dev/packages/audio_session).
 
 This page provides a guide on how to use `audio_session` to manage the audio context.
 
@@ -18,7 +18,7 @@ dependencies:
 
 ## Basic Usage
 
-Initialize and configure `audio_session` in your app. A good place to do this is in the `initState` of your widget.
+Initialize and configure `audio_session` in your app. A good place to do this is in the `initState` of your widget and should be done before any audio is played.
 
 ```dart
 import 'package:audio_session/audio_session.dart';
