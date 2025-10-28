@@ -5,7 +5,7 @@ description: Learn how to stream and buffer audio data
 
 ## Overview
 
-*flutter_soloud* supports streaming audio data while receiving it in real-time. The supported audio data formats are raw PCM, MP3, or compressed through the [Opus](https://www.opus-codec.org/) and [Vorbis](https://xiph.org/vorbis/) codecs with [Ogg](https://xiph.org/ogg/) container libraries from [Xiph.org](https://www.xiph.org/). This is particularly useful when:
+*flutter_soloud* supports streaming audio data while receiving it in real-time. The supported audio data formats are raw PCM, MP3, or compressed through the [Opus](https://www.opus-codec.org/), [Vorbis](https://xiph.org/vorbis/), and [FLAC](https://xiph.org/flac/) codecs with [Ogg](https://xiph.org/ogg/) container libraries from [Xiph.org](https://www.xiph.org/). This is particularly useful when:
 - Streaming audio from network sources like icecast radio
 - Working with OpenAI or other streaming APIs
 - Generating audio data on-the-fly
@@ -98,6 +98,7 @@ Autodetected formats are:
 - `mp3` - Mp3 format
 - `opus` - Ogg container with Opus codec
 - `ogg` - Ogg container with Vorbis codec
+- `flac` - Ogg container with FLAC codec
 These compressed formats are supporting metadata (using the `onMetadata` callback).
 
 
