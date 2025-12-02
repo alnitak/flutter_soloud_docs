@@ -1,11 +1,11 @@
 ---
 title: Without Opus/Vorbis
-description: Configure builds without Opus and Vorbis libraries to reduce binary size
+description: Configure builds without OGG, Opus, Vorbis, and FLAC libraries to reduce binary size
 ---
 
 ## Overview
 
-The *Opus* and *Vorbis* libraries are embedded by default in flutter_soloud. However, if you don't need streaming capabilities, you can exclude these libraries to reduce your app's binary size by 600~1500 KB (depending on platform).
+The *OGG*, *Opus*, *Vorbis*, and *FLAC* libraries are embedded by default in flutter_soloud. However, if you don't need streaming capabilities, you can exclude these libraries to reduce your app's binary size by 600~1500 KB (depending on platform).
 
 ## Configuration Methods
 
@@ -83,7 +83,7 @@ Requirements:
 ## Impact on Functionality
 
 When built without Opus/Vorbis:
-- `setBufferStream()` and `readSamplesFrom*()` using Opus/Vorbis formats will throw exceptions
+- `setBufferStream()` and `readSamplesFrom*()` using Opus/Vorbis/FLAC formats will throw exceptions
 - Other audio formats remain fully functional
 - Binary size reduces by 600~1500 KB
 - All other features work normally
