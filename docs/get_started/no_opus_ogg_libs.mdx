@@ -9,9 +9,7 @@ The *OGG*, *Opus*, *Vorbis*, and *FLAC* libraries are embedded by default in flu
 
 ## Configuration Methods
 
-### Linux, MacOS, Windows, Android, iOS
-
-#### VS Code Configuration
+#### VS Code Configuration (all platforms)
 Add to `.vscode/launch.json`:
 ```json
 {
@@ -59,13 +57,21 @@ flutter pub get
 export NO_OPUS_OGG_LIBS= && flutter run  # Unsets the environment variable
 ```
 
-## iOS/MacOS Setup
+#### iOS/MacOS Setup
 Add to `ios/Podfile` or `macos/Podfile`:
 ```ruby
 ENV['NO_OPUS_OGG_LIBS'] = '1'
 ```
 
-<Warning>IDE environment variables are ignored for iOS and MacOS builds.</Warning>
+<Warning>
+When changing the `NO_OPUS_OGG_LIBS` environment variable, you may have to enter ios and/or macos directories and:
+
+```
+rm -rf Pods Podfile.lock
+pod deintegrate
+pod install --repo-update
+```
+</Warning>
 
 ### Web Platform
 
