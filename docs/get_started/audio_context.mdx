@@ -7,6 +7,9 @@ description: How to manage audio context and interruptions
 
 This page provides a guide on how to use `audio_session` to manage the audio context.
 
+<Info>
+Please, look at the `lib/audio_context/audio_context.dart` example for a simple implementation to handle audio interruptions and the use of `audio_service` also for background audio.
+
 ## Setup
 
 First, add `audio_session` to your `pubspec.yaml`:
@@ -98,8 +101,6 @@ void _handleInterruptions(AudioSession audioSession) {
   });
 }
 ```
-
-Please, look at the `lib/audio_context/audio_context.dart` example for a simple implementation to handle audio interruptions.
 
 <Info>
   **iOS and Google Ads**
