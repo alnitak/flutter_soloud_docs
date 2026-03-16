@@ -8,6 +8,8 @@ description: Learn how to control audio playback
 After loading a sound, you can play it using the `play()` method:
 
 ```dart
+final sound = await soloud.loadAsset('assets/your-audio-file.mp3');
+
 final handle = await SoLoud.instance.play(
   sound,
   volume: 1.0,
@@ -15,9 +17,24 @@ final handle = await SoLoud.instance.play(
   paused: false,
   looping: false,
 );
+
+[...]
+
+/// Dispose the sound when it's no longer needed
+await SoLoud.instance.disposeSource(sound);
 ```
 
-The returned `handle` uniquely identifies this instance of the playing sound.
+**Note:**
+- The returned `handle` uniquely identifies this instance of the playing sound and it becomes invalid when the sound is stopped or ends.
+- The `sound` remains valid in memory and can be played without lags until `disposeSource()` is called.
+
+The `load*` methods accept the `autoDispose` parameter, which will automatically dispose the sound when all its playing handles are finished.
+
+To make thisgs simplier and faster in some circumstances, you can use the `playSource` method to play audio from the given source and forget about the sound handle and its lifecycle. It will automatically dispose the source when it is finished playing:
+
+```dart
+SoLoud.instance.playSource(assets: 'assets/your-audio-file.mp3'); // accepts files and urls also
+```
 
 ## Playback Controls
 
