@@ -9,7 +9,7 @@ The *OGG*, *Opus*, *Vorbis*, and *FLAC* libraries are embedded by default in flu
 
 ## Configuration Methods
 
-#### VS Code Configuration (all platforms)
+### VS Code Configuration (all platforms)
 Add to `.vscode/launch.json`:
 ```json
 {
@@ -23,7 +23,7 @@ Add to `.vscode/launch.json`:
 }
 ```
 
-#### Android Studio Setup
+### Android Studio Setup
 Add under Run/Debug Configurations:
 ```
 Environment Variables: NO_OPUS_OGG_LIBS="1"
@@ -33,7 +33,7 @@ Environment Variables: NO_OPUS_OGG_LIBS="1"
 ![AS setup2](https://github.com/alnitak/flutter_soloud_docs/raw/main/img/AS_edit_conf2.png)
 </Card>
 
-#### Gradle Build
+### Gradle Build
 It is also possible to configure the environment variables in the `android/gradle.properties`:
 ```
 NO_OPUS_OGG_LIBS=true # add this line
@@ -44,7 +44,7 @@ or int the `android/build.gradle.kts` add this snippet:
 allprojects { extra["NO_OPUS_OGG_LIBS"] = "true" }
 ```
 
-#### Command Line Build (should work on all platforms)
+### Command Line Build (should work on all platforms)
 ```bash
 # Build without Opus/Ogg
 flutter clean
@@ -57,7 +57,7 @@ flutter pub get
 unset NO_OPUS_OGG_LIBS && flutter run  # Unsets the environment variable
 ```
 
-#### iOS/MacOS Setup
+### iOS/MacOS Setup
 
 Flutter supports two build systems for iOS and macOS: **CocoaPods** (legacy) and **Swift Package Manager (SPM)**.
 
@@ -70,7 +70,7 @@ Flutter supports two build systems for iOS and macOS: **CocoaPods** (legacy) and
 **Recommendation for CocoaPods users**: Use the Podfile method (`ENV['NO_OPUS_OGG_LIBS'] = '1'`) as it's persistent and doesn't require setting the variable for every build command.
 </Info>
 
-##### CocoaPods (Default/Legacy)
+#### CocoaPods (Default/Legacy)
 
 CocoaPods supports **both** configuration methods. Choose the one that best fits your workflow:
 
@@ -95,7 +95,7 @@ Set the variable when building (no Podfile changes needed):
 export NO_OPUS_OGG_LIBS="1" && flutter run
 ```
 
-##### Swift Package Manager (SPM)
+#### Swift Package Manager (SPM)
 
 SPM only supports the **environment variable** method:
 
