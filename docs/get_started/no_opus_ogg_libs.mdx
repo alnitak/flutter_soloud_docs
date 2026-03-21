@@ -57,6 +57,22 @@ flutter pub get
 unset NO_OPUS_OGG_LIBS && flutter run  # Unsets the environment variable
 ```
 
+### Linux Setup
+
+If `NO_OPUS_OGG_LIBS` is not set and therefore libraries are linked, by default the build will link the precompiled libraries for Ogg, Opus, Vorbis, and FLAC.
+
+A new environment variable could be set to try linking the embedded libraries. Here a brief usage:
+```bash
+# Default - use bundled libraries (backward compatible)
+flutter build linux
+
+# Prefer system libraries, fallback to bundled
+TRY_SYSTEM_LIBS_FIRST=1 flutter build linux
+
+# Skip Opus/Ogg/Vorbis/FLAC entirely
+NO_OPUS_OGG_LIBS=1 flutter build linux
+```
+
 ### iOS/MacOS Setup
 
 Flutter supports two build systems for iOS and macOS: **CocoaPods** (legacy) and **Swift Package Manager (SPM)**.
