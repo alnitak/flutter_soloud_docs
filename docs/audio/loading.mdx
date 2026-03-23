@@ -68,6 +68,22 @@ sound.allInstancesFinished.first.then((_) {
 await SoLoud.instance.play(sound);
 ```
 
+### Automatic Disposal
+
+All `load*` methods support an `autoDispose` parameter that automatically disposes the audio source when all its handles have finished playing. This eliminates the need to manually call `disposeSource`.
+
+```dart
+// This sound will be automatically disposed when playback finishes
+final sound = await SoLoud.instance.loadFile(
+  'path/to/sound.mp3',
+  autoDispose: true,
+);
+await SoLoud.instance.play(sound);
+// No need to call disposeSource - it happens automatically!
+```
+
+<Info>Using `autoDispose: true` is recommended for short sounds that play once (like sound effects), while manual disposal is better for sounds you intend to reuse multiple times.</Info>
+
 ## Loading Methods
 
 You can load audio in several ways, depending on your source and platform requirements. Below are the available methods:
