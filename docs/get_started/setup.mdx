@@ -62,6 +62,8 @@ When creating a release archive (IPA), you may need to modify symbol stripping t
 2. Navigate to Target Runner > Build Settings > Strip Style
 3. Change from "All Symbols" to "Non-Global Symbols"
 
+For iOS 26.4+ debug mode issues on physical devices, see the [iOS Setup Guide](/get_started/iOS_issue).
+
 ### iOS and MacOS build
 
 On macOS and iOS, the [Swift Package Manager](https://docs.flutter.dev/packages-and-plugins/swift-package-manager/for-app-developers) (SPM) can be used to build the plugin module. If SPM is not enabled, the build will be done using CocoaPods (using `cmake`). If the latter is used, please be sure you have `cmake` installed: `brew install cmake`.
