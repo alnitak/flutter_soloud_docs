@@ -20,7 +20,7 @@ thread #20, name = 'DartWorker'
 
 This error occurs because iOS 26.4 has tightened code signing and memory protection requirements for JIT (Just-In-Time) compilation, which Flutter uses in debug mode.
 
-Personally, I encountered this issue on a physical device running iOS 26.4 in debug mode connected via USB, not over wi-fi connection. This happens using VS Code and not using XCode.
+Personally, I encountered this issue on a physical device running iOS 26.4 in debug mode connected via USB, not over wi-fi connection. This happens using VS Code and not using XCode. If the issue still persists, this is likely a fundamental iOS 26.4+ security restriction that cannot be bypassed for USB debugging. The Wi-Fi debugging workaround may be the only solution until Apple or Flutter provides a fix.
 
 ### The Solution
 
