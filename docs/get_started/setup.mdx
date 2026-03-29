@@ -54,6 +54,15 @@ and then set the `TRY_SYSTEM_LIBS_FIRST=1` environment variable to link them ins
 TRY_SYSTEM_LIBS_FIRST=1 flutter run
 ```
 
+
+### iOS Configuration
+
+⚠️ Using **Swift Package Manager** (SPM), packages cannot set Xcode build settings on the consuming app target. So when creating a release archive (IPA), you may need to modify symbol stripping to prevent errors:
+
+1. Open your project in Xcode
+2. Navigate to Target Runner > Build Settings > Strip Style
+3. Change from "All Symbols" to "Non-Global Symbols"
+
 ### iOS and MacOS build
 
 On macOS and iOS, the [Swift Package Manager](https://docs.flutter.dev/packages-and-plugins/swift-package-manager/for-app-developers) (SPM) can be used to build the plugin module. If SPM is not enabled, the build will be done using CocoaPods (using `cmake`). If the latter is used, please be sure you have `cmake` installed: `brew install cmake`.
