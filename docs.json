@@ -19,7 +19,7 @@
           "href": "/get_started/setup"
         },
         {
-          "title": "🚫 Without Opus/Ogg",
+          "title": "🚫 Without Xiph libs",
           "href": "/get_started/no_xiph_libs"
         },
         {
