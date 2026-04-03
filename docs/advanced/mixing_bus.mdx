@@ -1,0 +1,229 @@
+---
+title: Mixing Busses
+description: Learn how to use mixing buses for grouped audio control and routing
+---
+
+## Overview
+
+Mixing buses allow you to group and control multiple audio sources together. A mixing bus acts as a virtual audio mixer channel that enables:
+
+- **Group audio sources**: Route multiple sounds through a single bus
+- **Collective volume control**: Adjust the volume of all sounds on a bus with a single call
+- **Shared effects**: Apply filters to all sounds routed through the bus
+- **Dynamic routing**: Move live sounds between buses at runtime
+
+<Info>
+Mixing buses are particularly useful for games and applications that need to manage different audio categories like music, SFX, voiceovers, and ambience independently.
+</Info>
+
+## Basic Workflow
+
+### 1. Create a Mixing Bus
+
+```dart
+// Create a new mixing bus with an optional name
+final sfxBus = SoLoud.instance.createMixingBus(name: 'SFX');
+final musicBus = SoLoud.instance.createMixingBus(name: 'Music');
+```
+
+### 2. Play the Bus on the Engine
+
+A bus must be "played" on the main engine before its output becomes audible:
+
+```dart
+// Play the bus on the engine (required!)
+final busHandle = sfxBus.playOnEngine();
+
+// You can also set initial volume and paused state
+musicBus.playOnEngine(volume: 0.8, paused: false);
+```
+
+### 3. Play Sounds Through the Bus
+
+```dart
+// Load audio assets
+final explosion = await SoLoud.instance.loadAsset('assets/explosion.mp3');
+final backgroundMusic = await SoLoud.instance.loadAsset('assets/music.mp3');
+
+// Play sounds through the bus...
+await sfxBus.play(explosion);
+await musicBus.play(backgroundMusic, looping: true);
+
+// ...or play it with the usual `play()` method
+await SoLoud.instance.play(explosion, busId: sfxBus.busId);
+```
+
+### 4. Control the Bus
+
+```dart
+// Adjust volume for all sounds on the bus
+SoLoud.instance.setVolume(sfxBus.soundHandle!, 0.5);
+
+// Apply effects to the entire bus
+sfxBus.filters.echoFilter.activate();
+sfxBus.filters.echoFilter.delay.value = 0.3;
+
+// Get the number of active voices on the bus
+final voiceCount = sfxBus.getActiveVoiceCount();
+```
+
+## Bus Management
+
+### The Buses Singleton
+
+Use the `Buses` singleton to manage all active buses:
+
+```dart
+// Get all active buses
+final allBuses = Buses().buses;
+
+// Find a bus by name
+final sfxBus = Buses().byName('SFX');
+
+// Find a bus by ID
+final bus = Buses().byId(1);
+```
+
+### Disposing Buses
+
+When you're done with a bus, dispose it to free resources:
+
+```dart
+// Dispose a bus (stops all sounds playing through it)
+sfxBus.dispose();
+```
+
+## Dynamic Sound Routing
+
+### Annexing Sounds
+
+Move a live sound from one bus to another (or from the engine to a bus):
+
+```dart
+// Play a sound on the main engine
+final handle = await SoLoud.instance.play(someSound);
+
+// Later, move it to a bus
+sfxBus.annexSound(handle);
+```
+
+This is useful for:
+- Dynamically grouping sounds at runtime
+- Moving sounds between audio categories
+- Applying effects to sounds that are already playing
+
+## 3D Audio with Buses
+
+You can play 3D positioned sounds through a bus:
+
+```dart
+// Play a 3D sound through the bus
+await sfxBus.play3d(
+  explosion,
+  10.0,  // posX
+  0.0,   // posY
+  5.0,   // posZ
+);
+```
+
+## Bus Filters
+
+Apply filters to affect all sounds on a bus:
+
+```dart
+// Activate pitch shift filter on the bus
+sfxBus.filters.pitchShiftFilter.activate();
+sfxBus.filters.pitchShiftFilter
+  ..shift(soundHandle: sfxBus.soundHandle).value = 1.5;
+
+// Apply low-fi effect to all music
+musicBus.filters.lofiFilter.activate();
+musicBus.filters.lofiFilter
+  ..sampleRate.value = 8000
+  ..bitDepth.value = 4;
+
+// Deactivate filters
+sfxBus.filters.pitchShiftFilter.deactivate();
+```
+
+## Channel Control
+
+Configure the number of output channels and monitor levels:
+
+```dart
+// Set bus to mono or stereo (default is stereo)
+sfxBus.setChannels(channels: Channels.mono);
+
+// Get approximate output volume for VU meters
+final leftVolume = sfxBus.getChannelVolume(0);
+final rightVolume = sfxBus.getChannelVolume(1);
+```
+
+## Complete Example
+
+```dart
+class AudioManager {
+  late Bus musicBus;
+  late Bus sfxBus;
+  late Bus voiceBus;
+
+  Future<void> init() async {
+    await SoLoud.instance.init();
+
+    // Create buses for different audio categories
+    musicBus = SoLoud.instance.createMixingBus(name: 'Music');
+    sfxBus = SoLoud.instance.createMixingBus(name: 'SFX');
+    voiceBus = SoLoud.instance.createMixingBus(name: 'Voice');
+
+    // Play all buses on the engine
+    musicBus.playOnEngine(volume: 0.7);
+    sfxBus.playOnEngine(volume: 1.0);
+    voiceBus.playOnEngine(volume: 0.9);
+  }
+
+  Future<void> playMusic(String path) async {
+    final music = await SoLoud.instance.loadAsset(path);
+    await musicBus.play(music, looping: true);
+  }
+
+  Future<void> playSfx(String path) async {
+    final sfx = await SoLoud.instance.loadAsset(path);
+    await sfxBus.play(sfx);
+  }
+
+  Future<void> playVoice(String path) async {
+    final voice = await SoLoud.instance.loadAsset(path);
+    await voiceBus.play(voice);
+  }
+
+  // Duck music when voice plays
+  void duckMusicForVoice() {
+    SoLoud.instance.setVolume(musicBus.soundHandle!, 0.3);
+  }
+
+  void restoreMusicVolume() {
+    SoLoud.instance.setVolume(musicBus.soundHandle!, 0.7);
+  }
+
+  void dispose() {
+    musicBus.dispose();
+    sfxBus.dispose();
+    voiceBus.dispose();
+  }
+}
+```
+
+## Best Practices
+
+- **Always call `playOnEngine()`** after creating a bus - sounds won't be audible until you do
+- **Use meaningful names** when creating buses to make them easier to identify
+- **Group logically** - create buses for audio categories (music, SFX, UI, voice)
+- **Clean up** - dispose buses when they're no longer needed
+- **Monitor voice count** - use `getActiveVoiceCount()` to debug audio issues
+- **Use buses for effects** - apply filters to buses rather than individual sounds when possible
+- **Volume categories** - use buses to implement user-adjustable volume settings per category
+
+## Reference
+
+- [Bus class API](https://github.com/alnitak/flutter_soloud/blob/main/lib/src/mixing_bus.dart) - Full API documentation
+- [SoLoud Mixing Bus Documentation](https://solhsa.com/soloud/mixbus.html) - Official SoLoud docs

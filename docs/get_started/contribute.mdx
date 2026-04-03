@@ -22,13 +22,17 @@ This plugin uses the following structure:
 * `src`: Contains the native source code. Linux, Android and Windows have their own CmakeFile.txt file in their own subdir to build the code into a dynamic library.
 * `src/soloud`: Contains the SoLoud sources of my fork
 * `web`: Contains the scripts to build the plugin module on the web platform.
-* `xiph`: Contains the script to build `ogg` and `opus` libraries for all the platforms.
+* `xiph`: Contains the script to build `ogg`, `opus`, `vorbis`, and `flac` libraries for all the platforms.
+
+Each platform folders contains its own `CMakeLists.txt` file to build the code into a dynamic library. A common `CMakeLists.txt` file is stored in `src/`.
+
+On macOS and iOS, the [Swift Package Manager](https://docs.flutter.dev/packages-and-plugins/swift-package-manager/for-app-developers) (SPM) can be used to build the plugin module. If SPM is not enabled, the build will be done using CocoaPods (using `cmake`).
 
 The `flutter_soloud` plugin utilizes a [forked](https://github.com/alnitak/soloud) repository of [SoLoud](https://github.com/jarikomppa/soloud), where the [miniaudio](https://github.com/mackron/miniaudio) audio backend is used by default.
 
 #### Debugging
 
-I have provided the necessary settings in the **.vscode** directory for debugging native C++ code on both Linux and Windows. To debug on Android, please use *Android Studio* and open the project located in the ***example/android*** directory. On Mac and iOS, please use XCode.
+I have provided the necessary settings in the **.vscode** directory for debugging native C++ code on Linux, macOS, and Windows. To debug on Android, please use *Android Studio* and open the project located in the ***example/android*** directory. On iOS, please use XCode.
 
 ##### Logging
 

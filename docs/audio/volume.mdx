@@ -43,6 +43,10 @@ SoLoud.instance.setGlobalVolume(0.8); // 80% volume
 // Get global volume
 final globalVolume = SoLoud.instance.getGlobalVolume();
 
+/// Gets the approximate volume for output per output
+/// channel (i.e, per speaker).
+final outputVolumes = SoLoud.instance.getApproximateVolume(1 /* the channel index */);
+
 // Fade global volume
 SoLoud.instance.fadeGlobalVolume(
   0.0, // target volume

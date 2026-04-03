@@ -19,8 +19,8 @@
           "href": "/get_started/setup"
         },
         {
-          "title": "🚫 Without Opus/Ogg",
-          "href": "/get_started/no_opus_ogg_libs"
+          "title": "🚫 Without Xiph libs",
+          "href": "/get_started/no_xiph_libs"
         },
         {
           "title": "📋 Logging Setup",
@@ -67,6 +67,10 @@
         {
           "title": "🔄 Audio Streaming",
           "href": "/advanced/streaming"
+        },
+        {
+          "title": "🎚️ Mixing Busses",
+          "href": "/advanced/mixing_bus"
         },
         {
           "title": "🎛️ Effects & Filters",

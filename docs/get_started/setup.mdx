@@ -30,13 +30,44 @@ sudo pacman -S alsa-lib
 sudo zypper install alsa-devel
 ```
 
-### iOS Configuration
+if you are linking the [Xiph libraries](/get_started/no_xiph_libs) (the default), you can also choose to use the `TRY_SYSTEM_LIBS_FIRST=1` environment variable to link the onces available in the system:
 
-When creating a release archive (IPA), you may need to modify symbol stripping to prevent errors:
+```bash
+# Default - use bundled libraries
+flutter build run
+
+# Prefer system libraries, fallback to bundled
+TRY_SYSTEM_LIBS_FIRST=1 flutter run
+```
+
+### Rasperry Pi Setup
+
+Since the precompiled Xiph libraries are provided only for x86_64, you need to install them manually on the system:
+
+```bash
+sudo apt install libflac-dev libogg-dev libopus-dev libvorbis-dev
+```
+
+and then set the `TRY_SYSTEM_LIBS_FIRST=1` environment variable to link them instead of the bundled ones:
+
+```bash
+TRY_SYSTEM_LIBS_FIRST=1 flutter run
+```
+
+if the Xiph libraries are not needed (for streaming purposes), you can also look here: [Without Xiph libs](/get_started/no_xiph_libs)
+
+
+### iOS and MacOS Configuration
+
+⚠️ Using **Swift Package Manager** (SPM), packages cannot set Xcode build settings on the consuming app target. So when creating a release archive (IPA), you may need to modify symbol stripping to prevent errors:
 
 1. Open your project in Xcode
 2. Navigate to Target Runner > Build Settings > Strip Style
 3. Change from "All Symbols" to "Non-Global Symbols"
+
+### iOS and MacOS build
+
+On macOS and iOS, the [Swift Package Manager](https://docs.flutter.dev/packages-and-plugins/swift-package-manager/for-app-developers) (SPM) can be used to build the plugin module. If SPM is not enabled, the build will be done using CocoaPods (using `cmake`). If the latter is used, please be sure you have `cmake` installed: `brew install cmake`.
 
 ## Basic Usage
 
