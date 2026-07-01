@@ -6,14 +6,15 @@ description: Learn how to set up flutter_soloud in your project
 ## Platform Setup
 
 ### Web Platform
-To use this plugin on the web platform, add the following scripts to your `index.html`:
+
+To use this plugin on the web platform, add the following scripts to your `web/index.html`:
 
 ```html
 <script src="assets/packages/flutter_soloud/web/libflutter_soloud_plugin.js" defer></script>
 <script src="assets/packages/flutter_soloud/web/init_module.dart.js" defer></script>
 ```
 
-See the [Web Platform Guide](/get_started/web_notes) for more details.
+The web build uses a WebAssembly module that requires `SharedArrayBuffer`, which means it must be run with `--wasm` or served with cross-origin isolation headers. See the [Web Platform Guide](/get_started/web_notes) for details.
 
 ### Linux Setup
 
@@ -30,17 +31,17 @@ sudo pacman -S alsa-lib
 sudo zypper install alsa-devel
 ```
 
-if you are linking the [Xiph libraries](/get_started/no_xiph_libs) (the default), you can also choose to use the `TRY_SYSTEM_LIBS_FIRST=1` environment variable to link the onces available in the system:
+If you are linking the [Xiph libraries](/get_started/no_xiph_libs) (the default), you can also choose to use the `TRY_SYSTEM_LIBS_FIRST=1` environment variable to link the ones available in the system:
 
 ```bash
 # Default - use bundled libraries
-flutter build run
+flutter run
 
 # Prefer system libraries, fallback to bundled
 TRY_SYSTEM_LIBS_FIRST=1 flutter run
 ```
 
-### Rasperry Pi Setup
+### Raspberry Pi Setup
 
 Since the precompiled Xiph libraries are provided only for x86_64, you need to install them manually on the system:
 
@@ -54,10 +55,10 @@ and then set the `TRY_SYSTEM_LIBS_FIRST=1` environment variable to link them ins
 TRY_SYSTEM_LIBS_FIRST=1 flutter run
 ```
 
-if the Xiph libraries are not needed (for streaming purposes), you can also look here: [Without Xiph libs](/get_started/no_xiph_libs)
+If the Xiph libraries are not needed (for streaming purposes), you can also look here: [Without Xiph libs](/get_started/no_xiph_libs)
 
 
-### iOS and MacOS Configuration
+### iOS and macOS Configuration
 
 ⚠️ Using **Swift Package Manager** (SPM), packages cannot set Xcode build settings on the consuming app target. So when creating a release archive (IPA), you may need to modify symbol stripping to prevent errors:
 
@@ -65,7 +66,7 @@ if the Xiph libraries are not needed (for streaming purposes), you can also look
 2. Navigate to Target Runner > Build Settings > Strip Style
 3. Change from "All Symbols" to "Non-Global Symbols"
 
-### iOS and MacOS build
+### iOS and macOS build
 
 On macOS and iOS, the [Swift Package Manager](https://docs.flutter.dev/packages-and-plugins/swift-package-manager/for-app-developers) (SPM) can be used to build the plugin module. If SPM is not enabled, the build will be done using CocoaPods (using `cmake`). If the latter is used, please be sure you have `cmake` installed: `brew install cmake`.
 

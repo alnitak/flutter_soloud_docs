@@ -10,24 +10,55 @@ Please note that filters for single sounds are not supported on the web.
 
 ## How to use
 
-To add the plugin to a web app, add the following line to the `<body>` section of `web/index.html`:
-```
+To add the plugin to a web app, add the following lines to the `<body>` section of `web/index.html`:
+```html
 <script src="assets/packages/flutter_soloud/web/libflutter_soloud_plugin.js" defer></script>
 <script src="assets/packages/flutter_soloud/web/init_module.dart.js" defer></script>
 ```
+
+## Build and run with WebAssembly
+
+The web build relies on a WebAssembly module that uses `SharedArrayBuffer` for the audio thread. Chrome only allows `SharedArrayBuffer` when the page is served with cross-origin isolation headers:
+
+```http
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
+Flutter's `--wasm` mode automatically enables these headers in the dev server, so the recommended run command is:
+
+```bash
+flutter run -d chrome --wasm -t lib/main.dart
+```
+
+For release builds, use:
+
+```bash
+flutter build web --wasm
+```
+
+### Why does `flutter run -d chrome` without `--wasm` fail?
+
+Without `--wasm`, the Flutter dev server does not send the cross-origin isolation headers required by `SharedArrayBuffer`. The browser then throws:
+
+```
+DataCloneError: Failed to execute 'postMessage' on 'Worker': SharedArrayBuffer transfer requires self.crossOriginIsolated.
+```
+
+If you need to run without `--wasm` (for example, with a custom hot-reload proxy), make sure the server you use to open the app sends the COOP/COEP headers above.
 
 ---
 
 **`loadUrl()`** may produce the following error when the app is run:
 >> Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at https://www.learningcontainer.com/wp-content/uploads/2020/02/Kalimba.mp3. (Reason: CORS header ‘Access-Control-Allow-Origin’ missing). Status code: 200.
 
-This is due for the default beavior of http servers which don't allow to make requests outside their domain. Refer [here](https://enable-cors.org/server.html) to learn how to enable your server to handle this situation.
+This is due to the default behavior of HTTP servers which don't allow requests outside their domain. Refer to [this guide](https://enable-cors.org/server.html) to learn how to enable your server to handle this situation.
 Instead, if you run the app locally, you could run the app with something like the following command:
-```
-flutter run -d chrome --web-renderer canvaskit --web-browser-flag '--disable-web-security' -t lib/main.dart --release
+```bash
+flutter run -d chrome --wasm --web-browser-flag '--disable-web-security' -t lib/main.dart --release
 ```
 
 ---
 
 ***It is not possible to read a local audio file directly*** on the web. For this reason, `loadMem()` has been added, which requires the `Uint8List` byte buffer of the audio file.
-***IMPORTANT***: `loadMem()` with mode `LoadMode.memory` used on web platform will freeze the UI for the time needed to decompress the audio file. Please use it with mode `LoadMode.disk` or load your sound when the app starts.
+***IMPORTANT***: `loadMem()` with mode `LoadMode.memory` used on the web platform will freeze the UI for the time needed to decompress the audio file. Please use it with mode `LoadMode.disk` or load your sound when the app starts.
