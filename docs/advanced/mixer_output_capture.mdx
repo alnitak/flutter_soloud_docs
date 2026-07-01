@@ -1,0 +1,147 @@
+---
+title: Mixer Output Capture
+description: Capture the master mixer output as a stream for recording, processing, or streaming
+---
+
+## Overview
+
+*flutter_soloud* can capture the master mixer output as a stream of raw audio data. This is useful for:
+
+- Recording the final mixed audio to a file
+- Streaming the mixed output to another service or device
+- Processing the master output in real-time
+
+The captured data is read from a circular buffer managed by the native engine. The stream emits chunks as they become available, and any remaining data is flushed when capture stops.
+
+<Info>
+Mixer output capture is a new feature. It is supported on all platforms, but the web build requires the WebAssembly module (`--wasm`).
+</Info>
+
+## Basic Workflow
+
+### 1. Start the Capture Stream
+
+Call `startMixerOutputStream()` after initializing SoLoud:
+
+```dart
+await SoLoud.instance.init();
+
+final stream = SoLoud.instance.startMixerOutputStream(
+  format: MixerOutputFormat.pcmF32le,
+  sampleRate: -1,                 // Use the engine sample rate
+  channels: -1,                   // Use the engine channel count
+  bufferSizeBytes: 1024 * 1024,   // 1 MB circular buffer
+  notificationThresholdBytes: 4096, // Emit a chunk every 4 KB
+);
+```
+
+### 2. Listen to the Stream
+
+Subscribe to the stream and write the chunks to a file, socket, or any other consumer:
+
+```dart
+final subscription = stream.listen((Uint8List chunk) {
+  // Append the chunk to a file or send it over the network
+  fileSink.add(chunk);
+});
+```
+
+### 3. Play Sounds as Usual
+
+While the capture is running, all sounds played through the engine are mixed into the captured output:
+
+```dart
+final sound = await SoLoud.instance.loadAsset('assets/music.mp3');
+await SoLoud.instance.play(sound);
+```
+
+### 4. Stop the Capture
+
+When you are done, call `stopMixerOutputStream()` to stop the capture and flush any remaining data:
+
+```dart
+SoLoud.instance.stopMixerOutputStream();
+await subscription.cancel();
+await fileSink.close();
+```
+
+## Output Format
+
+The `MixerOutputFormat` enum controls the format of the captured data:
+
+| Format | Description |
+|--------|-------------|
+| `MixerOutputFormat.pcmF32le` | 32-bit floating point PCM, little-endian (default) |
+| `MixerOutputFormat.pcmS8` | 8-bit signed PCM |
+| `MixerOutputFormat.pcmS16le` | 16-bit signed PCM, little-endian |
+| `MixerOutputFormat.pcmS32le` | 32-bit signed PCM, little-endian |
+| `MixerOutputFormat.opus` | Opus encoded audio |
+| `MixerOutputFormat.vorbis` | Vorbis encoded audio |
+| `MixerOutputFormat.flac` | FLAC encoded audio |
+
+<Info>
+Compressed formats (`opus`, `vorbis`, `flac`) require the plugin to be built with the Xiph libraries. See the [Without Xiph libs](/get_started/no_xiph_libs) page for more details.
+</Info>
+
+## Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `format` | The desired output format. PCM formats are always available; compressed formats require Xiph libraries. |
+| `sampleRate` | The sample rate of the captured audio. Use `-1` to match the engine sample rate. |
+| `channels` | The number of channels. Use `-1` to match the engine channel count. |
+| `bufferSizeBytes` | Total size of the circular capture buffer in bytes. A larger buffer allows more time between reads. |
+| `notificationThresholdBytes` | Number of bytes that must be available before a chunk is emitted. Smaller values give lower latency but more callbacks. |
+
+## Check if Capture is Running
+
+You can check whether the mixer output capture is currently active:
+
+```dart
+if (SoLoud.instance.isMixerOutputStreamRunning) {
+  // Capture is active
+}
+```
+
+## Important Notes
+
+- The captured stream is a **broadcast stream**. Multiple listeners can subscribe to it, but each listener receives the same chunks independently.
+- When the capture is stopped, any remaining data in the circular buffer is flushed synchronously. This ensures that compressed formats (such as Opus or FLAC) are properly finalized.
+- If the stream is already running, calling `startMixerOutputStream()` again returns the existing stream.
+- The capture stream is automatically closed when `SoLoud.instance.deinit()` is called.
+
+## Simple Example
+
+```dart
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter_soloud/flutter_soloud.dart';
+
+Future<void> recordMixerOutput(String outputPath) async {
+  await SoLoud.instance.init();
+
+  final file = File(outputPath);
+  final sink = file.openWrite();
+
+  final stream = SoLoud.instance.startMixerOutputStream(
+    format: MixerOutputFormat.pcmS16le,
+    bufferSizeBytes: 1024 * 1024,
+    notificationThresholdBytes: 4096,
+  );
+
+  final subscription = stream.listen((Uint8List chunk) {
+    sink.add(chunk);
+  });
+
+  // Play a sound
+  final sound = await SoLoud.instance.loadAsset('assets/music.mp3');
+  await SoLoud.instance.play(sound);
+
+  // Record for 5 seconds
+  await Future<void>.delayed(const Duration(seconds: 5));
+
+  SoLoud.instance.stopMixerOutputStream();
+  await subscription.cancel();
+  await sink.close();
+}
+```
