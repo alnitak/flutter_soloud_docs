@@ -78,9 +78,10 @@ The `MixerOutputFormat` enum controls the format of the captured data:
 | `MixerOutputFormat.opus` | Opus encoded audio |
 | `MixerOutputFormat.vorbis` | Vorbis encoded audio |
 | `MixerOutputFormat.flac` | FLAC encoded audio |
+| `MixerOutputFormat.wav` | WAV encoded audio (16-bit PCM in a RIFF/WAVE container) |
 
 <Info>
-Compressed formats (`opus`, `vorbis`, `flac`) require the plugin to be built with the Xiph libraries. See the [Without Xiph libs](/get_started/no_xiph_libs) page for more details.
+Compressed formats (`opus`, `vorbis`, `flac`) require the plugin to be built with the Xiph libraries. `wav` is self-contained and does not require Xiph. See the [Without Xiph libs](/get_started/no_xiph_libs) page for more details.
 </Info>
 
 ## Parameters
