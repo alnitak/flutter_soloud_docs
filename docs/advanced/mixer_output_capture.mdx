@@ -78,10 +78,68 @@ The `MixerOutputFormat` enum controls the format of the captured data:
 | `MixerOutputFormat.opus` | Opus encoded audio |
 | `MixerOutputFormat.vorbis` | Vorbis encoded audio |
 | `MixerOutputFormat.flac` | FLAC encoded audio |
-| `MixerOutputFormat.wav` | WAV encoded audio (16-bit PCM in a RIFF/WAVE container) |
+| `MixerOutputFormat.wav` | WAV encoded audio (16-bit PCM in a RIFF/WAVE container). Streams incrementally, but the header size fields must be patched after capture stops. |
 
 <Info>
 Compressed formats (`opus`, `vorbis`, `flac`) require the plugin to be built with the Xiph libraries. `wav` is self-contained and does not require Xiph. See the [Without Xiph libs](/get_started/no_xiph_libs) page for more details.
+</Info>
+
+## WAV Format Caveat
+
+When using `MixerOutputFormat.wav`, the stream behaves like the other formats: you receive a 44-byte header at the start of the stream, followed by PCM chunks as they are produced. However, the WAV container stores the total PCM size in the `RIFF` and `data` chunk headers, so those fields are placeholders until the capture ends.
+
+To produce a valid WAV file, you must:
+
+1. Capture the stream as usual.
+2. Stop the capture with `stopMixerOutputStream()`.
+3. Call `SoLoud.instance.getMixerOutputWavHeader()` to get the updated 44-byte header.
+4. Overwrite the first 44 bytes of the saved file with that header.
+
+```dart
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter_soloud/flutter_soloud.dart';
+
+Future<void> recordWavMixerOutput(String outputPath) async {
+  await SoLoud.instance.init();
+
+  final file = File(outputPath);
+  final raf = file.openSync(mode: FileMode.writeOnly);
+
+  final stream = SoLoud.instance.startMixerOutputStream(
+    format: MixerOutputFormat.wav,
+    bufferSizeBytes: 1024 * 1024,
+    notificationThresholdBytes: 4096,
+  );
+
+  final subscription = stream.listen((Uint8List chunk) {
+    raf.writeFromSync(chunk);
+  });
+
+  // Play a sound
+  final sound = await SoLoud.instance.loadAsset('assets/music.mp3');
+  await SoLoud.instance.play(sound);
+
+  // Record for 5 seconds
+  await Future<void>.delayed(const Duration(seconds: 5));
+
+  SoLoud.instance.stopMixerOutputStream();
+  await subscription.cancel();
+  await raf.close();
+
+  // Patch the WAV header with the final sizes.
+  final header = SoLoud.instance.getMixerOutputWavHeader();
+  if (header.length == 44) {
+    final patchRaf = file.openSync(mode: FileMode.writeOnlyAppend)
+      ..setPositionSync(0)
+      ..writeFromSync(header);
+    await patchRaf.close();
+  }
+}
+```
+
+<Info>
+If you do not patch the header, the WAV file will still contain all the correct audio data, but media players may report a duration of zero or refuse to play it because the `data` chunk size will be `0`.
 </Info>
 
 ## Parameters
