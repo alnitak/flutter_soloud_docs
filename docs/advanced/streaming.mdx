@@ -5,14 +5,14 @@ description: Learn how to stream and buffer audio data
 
 ## Overview
 
-*flutter_soloud* supports streaming audio data while receiving it in real-time. The supported audio data formats are raw PCM, MP3, or compressed through the [Opus](https://www.opus-codec.org/), [Vorbis](https://xiph.org/vorbis/), and [FLAC](https://xiph.org/flac/) codecs with [Ogg](https://xiph.org/ogg/) container libraries from [Xiph.org](https://www.xiph.org/). This is particularly useful when:
+*flutter_soloud* supports streaming audio data while receiving it in real-time. The supported audio data formats are raw PCM, MP3, WAV, or compressed through the [Opus](https://www.opus-codec.org/), [Vorbis](https://xiph.org/vorbis/), and [FLAC](https://xiph.org/flac/) codecs with [Ogg](https://xiph.org/ogg/) container libraries from [Xiph.org](https://www.xiph.org/). This is particularly useful when:
 - Streaming audio from network sources like icecast radio
 - Working with OpenAI or other streaming APIs
 - Generating audio data on-the-fly
 - Processing audio in chunks
 - Automatically pause when buffering is needed and resume playback when enough data is available
 
-The *Opus* and *Ogg* libraries are embedded by default in flutter_soloud. However, if you don't need streaming capabilities, please read the [Without Opus/Ogg](/get_started/no_xiph_libs) section for how to exclude these libraries from your app.
+The *Opus* and *Ogg* libraries are embedded by default in flutter_soloud. However, if you don't need streaming capabilities, please read the [No Xiph libs](/get_started/no_xiph_libs) section for how to exclude these libraries from your app.
 
 ## Buffer Stream Setup
 
