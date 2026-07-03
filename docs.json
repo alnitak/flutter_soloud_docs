@@ -75,6 +75,10 @@
         {
           "title": "🎛️ Effects & Filters",
           "href": "/advanced/filters"
+        },
+        {
+          "title": "🔴 Output capture",
+          "href": "/advanced/mixer_output_capture"
         }
       ]
     },
