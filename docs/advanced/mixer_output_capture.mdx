@@ -31,7 +31,7 @@ final stream = SoLoud.instance.startMixerOutputStream(
   sampleRate: -1,                 // Use the engine sample rate
   channels: -1,                   // Use the engine channel count
   bufferSizeBytes: 1024 * 1024,   // 1 MB circular buffer
-  notificationThresholdBytes: 4096, // Emit a chunk every 4 KB
+  notificationThresholdBytes: 4096, // Emit a chunk every 4 KB (compressed/PCM threshold mode)
 );
 ```
 
@@ -150,7 +150,8 @@ If you do not patch the header, the WAV file will still contain all the correct 
 | `sampleRate` | The sample rate of the captured audio. Use `-1` to match the engine sample rate. |
 | `channels` | The number of channels. Use `-1` to match the engine channel count. |
 | `bufferSizeBytes` | Total size of the circular capture buffer in bytes. A larger buffer allows more time between reads. |
-| `notificationThresholdBytes` | Number of bytes that must be available before a chunk is emitted. Smaller values give lower latency but more callbacks. |
+| `notificationThresholdBytes` | Number of bytes that must be available before a chunk is emitted. Used for compressed formats and for PCM when `chunkPCMFrames` is `-1`. Smaller values give lower latency but more callbacks. |
+| `chunkPCMFrames` | Fixed number of PCM frames per emitted chunk. PCM only; must be at least `2048` and a multiple of `channels * bytesPerSample`. `-1` disables fixed-size chunking. |
 
 ## Check if Capture is Running
 
@@ -166,8 +167,24 @@ if (SoLoud.instance.isMixerOutputStreamRunning) {
 
 - The captured stream is a **broadcast stream**. Multiple listeners can subscribe to it, but each listener receives the same chunks independently.
 - When the capture is stopped, any remaining data in the circular buffer is flushed synchronously. This ensures that compressed formats (such as Opus or FLAC) are properly finalized.
+- For PCM formats, you can request fixed-size chunks by setting `chunkPCMFrames`. This is useful for network streaming or any consumer that needs a stable frame size. Compressed formats always use `notificationThresholdBytes` because the encoder determines the packet boundaries.
 - If the stream is already running, calling `startMixerOutputStream()` again returns the existing stream.
 - The capture stream is automatically closed when `SoLoud.instance.deinit()` is called.
+
+## Fixed-size PCM Chunks
+
+For live streaming or network audio, it is often easier to consume a fixed number of frames per chunk instead of variable-sized threshold chunks. Use `chunkPCMFrames` to emit chunks of exactly the requested size:
+
+```dart
+final stream = SoLoud.instance.startMixerOutputStream(
+  format: MixerOutputFormat.pcmS16le,
+  sampleRate: 44100,
+  channels: 2,
+  chunkPCMFrames: 2048, // Each chunk is 2048 stereo frames
+);
+```
+
+Each emitted chunk is exactly `chunkPCMFrames * channels * bytesPerSample` bytes, except for the final tail that is flushed when `stopMixerOutputStream()` is called. `chunkPCMFrames` must be at least `2048` and a multiple of `channels * bytesPerSample`. It is only valid for PCM formats; for compressed formats, use `notificationThresholdBytes` instead.
 
 ## Simple Example
 
