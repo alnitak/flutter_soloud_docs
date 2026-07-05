@@ -151,7 +151,7 @@ If you do not patch the header, the WAV file will still contain all the correct 
 | `channels` | The number of channels. Use `-1` to match the engine channel count. |
 | `bufferSizeBytes` | Total size of the circular capture buffer in bytes. A larger buffer allows more time between reads. |
 | `notificationThresholdBytes` | Number of bytes that must be available before a chunk is emitted. Used for compressed formats and for PCM when `chunkPCMFrames` is `-1`. Smaller values give lower latency but more callbacks. |
-| `chunkPCMFrames` | Fixed number of PCM frames per emitted chunk. PCM only; must be at least `2048` and a multiple of `channels * bytesPerSample`. `-1` disables fixed-size chunking. |
+| `chunkPCMFrames` | Fixed number of PCM frames per emitted chunk. PCM only; must be `-1` or at least `2048`. The emitted byte size is `chunkPCMFrames * channels * bytesPerSample`. |
 
 ## Check if Capture is Running
 
@@ -184,7 +184,13 @@ final stream = SoLoud.instance.startMixerOutputStream(
 );
 ```
 
-Each emitted chunk is exactly `chunkPCMFrames * channels * bytesPerSample` bytes, except for the final tail that is flushed when `stopMixerOutputStream()` is called. `chunkPCMFrames` must be at least `2048` and a multiple of `channels * bytesPerSample`. It is only valid for PCM formats; for compressed formats, use `notificationThresholdBytes` instead.
+Each emitted chunk is exactly `chunkPCMFrames * channels * bytesPerSample` bytes, except for the final tail that is flushed when `stopMixerOutputStream()` is called. `chunkPCMFrames` must be `-1` or at least `2048`. It is only valid for PCM formats; for compressed formats, use `notificationThresholdBytes` instead.
+
+### Main-thread Latency and Capture Gaps
+
+The native capture thread notifies Dart when a chunk is ready and waits for Dart to advance the read position. If the Dart thread is busy with synchronous work while a chunk is ready, the notification is delayed and the next chunk interval grows by roughly the time Dart was blocked. For example, a 500 ms main-thread stall produces a ~500 ms gap between PCM chunks.
+
+To avoid gaps in the captured stream, keep synchronous work off the Dart thread while capture is running, or use a larger buffer if occasional bursts are acceptable. It is also possible to use an Isolate to run capture flow in a separate thread. The `example/lib/mixer_capture/isolate_capture_test.dart` example demonstrates how to use the capture flow inside an Isolate other than the main.
 
 ## Simple Example
 
