@@ -14,6 +14,20 @@ description: Learn how to stream and buffer audio data
 
 The *Opus* and *Ogg* libraries are embedded by default in flutter_soloud. However, if you don't need streaming capabilities, please read the [No Xiph libs](/get_started/no_xiph_libs) section for how to exclude these libraries from your app.
 
+## Buffering Strategies
+
+The package provides two groups of streaming APIs:
+
+- **Push buffers** — the classic `setBufferStream` API described on this page. You push audio data with `addAudioDataStream` and the engine manages playback.
+- **Pull buffers** — the newer `setPullBufferStream` API described in [Pull Buffer Streaming](./pull_buffer_streaming). The engine asks for data on demand via a callback, which is especially useful for large files, network streaming, and encrypted sources.
+
+### Push Buffer Types
+
+Push buffers use `setBufferStream` and support two buffering modes:
+
+- [`BufferingType.preserved`](#preserved-mode) — keeps all audio data in memory, supports seeking and looping, but uses more RAM.
+- [`BufferingType.released`](#released-mode) — frees played audio data, lower memory usage, single playback instance only, and `getPosition` always returns 0.
+
 ## Buffer Stream Setup
 
 Initialize an audio stream:
@@ -217,7 +231,19 @@ Future<AudioSource> generatePCM() async {
 
 ## Best Practices
 
-- Use `BufferingType.released` for long streams
-- Consider memory usage when streaming large files
-- Handle network errors and buffering states
-- Clean up streams when no longer needed
+- Choose `BufferingType.released` for long streams and continuous network feeds.
+- Use `BufferingType.preserved` when you need seeking, looping, or multiple playback instances of the same stream.
+- For very large files (many GB) where you cannot hold the whole stream in memory, consider using the pull buffer API described in [Pull Buffer Streaming](./pull_buffer_streaming). It decodes a fixed-size circular window on demand and does not require the full audio data to be available in memory or pushed ahead of time.
+- Consider memory usage when streaming large files.
+- Handle network errors and buffering states.
+- Clean up streams when no longer needed.
+
+## Pull Buffer Streaming
+
+For scenarios where the audio source is too large to hold in memory, is delivered on demand, or requires custom fetching logic, flutter_soloud also offers a [pull buffer streaming API](./pull_buffer_streaming). With pull buffers:
+
+- The engine requests encoded data via `onMoreDataIsNeeded` whenever the decoded circular buffer drops below a configurable threshold.
+- You supply the data from any source: local files, network ranges, decryption layers, or custom protocols.
+- The plugin maintains only a fixed decoded circular buffer, so memory usage is bounded regardless of the total audio size.
+
+This is ideal for long podcasts, music libraries, or remote files where you want to stream incrementally without loading everything into RAM. The trade-off is that pull buffers require the total audio size (`audioSizeBytes`) in advance for accurate duration calculation and tail handling, and the source must be fetchable by byte offset.

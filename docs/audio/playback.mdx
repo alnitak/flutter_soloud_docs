@@ -76,7 +76,8 @@ Enable looping during playback:
 final handle = await SoLoud.instance.play(
   sound,
   looping: true,
-  loopingStartAt: Duration(seconds: 1),
+  loopingStartAt: Duration(seconds: 1), // optional
+  loopingEndAt: Duration(seconds: 5),   // optional
 );
 ```
 
@@ -91,6 +92,12 @@ SoLoud.instance.setLoopPoint(handle, Duration(seconds: 1));
 
 // Check if looping
 final isLooping = SoLoud.instance.getLooping(handle);
+
+/// Get the exclusive loop end point of a currently playing sound.
+Duration? SoLoud.instance.getLoopEndPoint(handle);
+
+/// Set the exclusive loop end point of a currently playing sound.
+SoLoud.instance.setLoopEndPoint(handle, time);
 ```
 
 ## Playback Speed

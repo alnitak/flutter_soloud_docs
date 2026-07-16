@@ -1,0 +1,120 @@
+---
+title: Pull Buffer Streaming
+description: Stream large audio files on demand with bounded memory
+---
+
+## Overview
+
+The pull buffer API is a second streaming mode in *flutter_soloud* designed for sources where the audio data is too large to hold in memory, arrives on demand, or must be fetched through custom logic. Instead of pushing the entire file into the engine with `addAudioDataStream`, you set up a pull buffer stream and provide a callback that the engine calls whenever it needs more encoded data.
+
+This is useful for:
+- Large local audio files (e.g. podcasts, music libraries, multi-hour recordings)
+- Network streams where only byte ranges are available
+- Encrypted or DRM-protected content that must be decrypted before decoding
+- Custom protocols or asset pipelines that cannot expose a plain file path
+
+The pull buffer maintains a fixed-size circular buffer of decoded audio. When the decoded data ahead of the playhead falls below a configured threshold, the engine calls `onMoreDataIsNeeded` to request the next chunk of encoded data. You then supply the chunk with `addPullBufferDataStream`. The engine detects the end of the stream automatically when the sequential feed reaches `audioSizeBytes`, so you do not need to mark the stream as ended manually.
+
+## Basic Usage
+
+```dart
+final stream = SoLoud.instance.setPullBufferStream(
+  audioSizeBytes: 10 * 1024 * 1024 * 1024, // total file size in bytes
+  bufferSizeBytes: 5 * 1024 * 1024,         // decoded circular buffer size
+  bufferTriggerPosition: 0.8,               // request more data when less than 20% ahead remains
+  onMoreDataIsNeeded: (offset) async {
+    // Fetch the next chunk starting at [offset].
+    final chunk = await fetchAudioRange(offset, chunkSize);
+
+    final ret = SoLoud.instance.addPullBufferDataStream(
+      stream,
+      chunk,
+      offset: offset,
+    );
+
+    if (ret != PlayerErrors.noError) {
+      // Handle error
+    }
+  },
+  onMetadata: (metadata) {
+    // Optional metadata callback
+  },
+);
+```
+
+No explicit end-of-stream call is needed. When the engine has received enough sequential data to reach `audioSizeBytes`, it flushes the decoder and finishes the voice.
+
+## API Reference
+
+| Method | Purpose |
+|--------|---------|
+| `setPullBufferStream` | Creates a pull buffer stream. Requires the total audio size, the circular buffer size, and a trigger position. |
+| `addPullBufferDataStream` | Feeds a chunk of encoded data into the stream. The engine decodes it and writes the decoded samples into the circular buffer. When the sequential data reaches `audioSizeBytes`, the stream ends automatically. |
+| `getPullBufferTimeRange` | Returns the current decoded time range `(startTime, endTime)` in the circular buffer. The playhead is usually near the start of this range. |
+
+### Parameters of `setPullBufferStream`
+
+| Parameter | Description |
+|-----------|-------------|
+| `audioSizeBytes` | Total size of the encoded audio source in bytes. This is needed for duration calculation and to know when the end has been reached. |
+| `bufferSizeBytes` | Size of the decoded circular buffer. This bounds the amount of decoded audio held in memory at any time. |
+| `bufferTriggerPosition` | A value in `[0.0, 1.0]` that determines when `onMoreDataIsNeeded` is fired. When the amount of decoded audio ahead of the playhead is less than `(1.0 - bufferTriggerPosition) * bufferSizeBytes`, the callback is called. Default is `0.8`. |
+| `onMoreDataIsNeeded` | Callback invoked when the engine needs more encoded data. It receives the requested byte `offset`. |
+| `onMetadata` | Optional callback for metadata discovered during decoding. |
+
+## How It Works
+
+1. When the stream starts, the engine immediately calls `onMoreDataIsNeeded` to fill the buffer.
+2. You fetch the requested byte range and pass it to `addPullBufferDataStream`.
+3. The engine decodes the data as soon as it arrives and stores the decoded samples in a circular buffer.
+4. Playback starts from the beginning of the decoded window.
+5. As playback advances, the decoded audio ahead of the playhead shrinks. When it crosses the configured threshold, `onMoreDataIsNeeded` is called again.
+6. The decoded window slides forward as new chunks are added, so the playhead stays near the left edge of the buffered range.
+
+```
+Decoded circular buffer over time
+
+  [start] ----[playhead]--------------------[end]
+            ↑ 20% ahead → trigger → fetch more data
+
+  [start] --------------------[playhead]----[end]
+                              ↑ 20% ahead → trigger → fetch more data
+```
+
+The threshold is based on how much decoded audio remains *ahead* of the playhead, not on the absolute buffer fill level.
+
+## Memory Considerations
+
+The pull buffer keeps only a fixed amount of decoded audio in memory at once. For a 10 GB MP3 with a 5 MB circular buffer, the maximum memory used by the audio engine is roughly:
+
+- The decoded circular buffer (`bufferSizeBytes`)
+- The encoded chunk that is currently being processed
+- A small decoded backlog held by the decoder
+
+This is far smaller than the 10 GB file size. The actual memory usage depends on the codec, bitrate, chunk size, and decoder behavior, but it is bounded and does not grow with the file size.
+
+## Advantages and Limitations
+
+### Advantages
+- **Bounded memory**: memory usage is independent of the total audio size.
+- **On-demand fetching**: the engine only requests data when it is needed.
+- **Flexible sources**: the data can come from any Dart code, including network, encryption, or custom storage.
+- **Suitable for large files**: multi-GB files can be streamed with a small circular buffer.
+
+### Limitations
+- **Requires file size in advance**: `audioSizeBytes` must be known when the stream is created. This is used for duration calculation and end-of-stream handling.
+- **Playhead at the edge of the buffer**: the current position is always near the start of the decoded window, not in the middle of a large pre-buffered region.
+- **Decoder is eager**: incoming encoded data is decoded as soon as it is supplied, not strictly at the last moment. The trigger only controls when more encoded data is requested.
+- **Single playback instance**: the pull buffer is tied to one playback voice. Create a new stream for a new voice.
+
+## Example
+
+See `example/lib/pull_buffer/file_stream.dart` for a complete example that streams a local MP3 file using a pull buffer, visualizes the decoded window, and handles repeated `onMoreDataIsNeeded` callbacks.
+
+## Best Practices
+
+- Choose a `bufferSizeBytes` that balances memory usage and callback frequency. A larger buffer means fewer fetches but more RAM.
+- Choose a `bufferTriggerPosition` that gives enough time to fetch the next chunk before the buffer runs out. The default `0.8` means the next chunk is requested when 20% ahead remains.
+- Keep chunk sizes reasonable. Very large chunks can hide the pull-buffer behavior and cause long decoding pauses; very small chunks can cause frequent callbacks.
+- Handle errors in `addPullBufferDataStream` and stop adding data if the stream becomes invalid.
+- The stream ends automatically once the sequential data reaches `audioSizeBytes`; no explicit end-of-stream call is required.
