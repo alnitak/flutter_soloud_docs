@@ -36,6 +36,86 @@ To make thisgs simplier and faster in some circumstances, you can use the `playS
 SoLoud.instance.playSource(assets: 'assets/your-audio-file.mp3'); // accepts files and urls also
 ```
 
+## Sample-accurate scheduling with `playClocked`
+
+When you call `play()`, the sound starts at the beginning of the **next output audio buffer**. This has two consequences:
+
+- the delay between your call and the audible start is anywhere between 0 and one buffer (~46 ms with the default buffer size of 2048 samples at 44100 Hz, ~93 ms at 4096), and
+- every sound started within the same buffer begins at the **exact same sample**. Rapidly launched sounds "clump" together (they sum into one louder sound), and periodic sounds — a metronome being the classic example — get an audibly irregular rhythm: the spacing between ticks becomes a multiple of the buffer size instead of the spacing you asked for.
+
+`playClocked()` solves this by scheduling the sound at a given *time* instead of "as soon as possible":
+
+```dart
+SoundHandle playClocked(
+  AudioSource sound,
+  Duration soundTime, {
+  int busId = 0,
+  double volume = 1,
+  double pan = 0,
+});
+```
+
+You pass your app's own "physics time" — any monotonically increasing clock in `Duration` form. The first call anchors that clock to the audio output clock; every following call is then placed on the output timeline with **sample accuracy**, so the spacing between sounds matches the spacing of the given times regardless of the engine buffer size:
+
+```dart
+var physicsTime = Duration.zero;
+
+// Metronome: an even rhythm even with a large audio buffer.
+Timer.periodic(const Duration(milliseconds: 100), (_) {
+  physicsTime += const Duration(milliseconds: 100);
+  SoLoud.instance.playClocked(tickSound, physicsTime);
+});
+```
+
+The 3D variant works the same way, with position and velocity instead of pan:
+
+```dart
+SoLoud.instance.play3dClocked(sound, physicsTime, posX, posY, posZ);
+```
+
+And both are available on mixing buses as `bus.playClocked(...)` and `bus.play3dClocked(...)`.
+
+**How it behaves:**
+
+- The first clocked play after `init()` anchors your clock to the audio clock and plays about **two output buffers later**. This built-in lead guarantees there is always at least one buffer of slack to absorb the jitter of your timer/clock calls.
+- Times must be **monotonically increasing**. If the engine sees the clock going backwards (e.g. a new session with its own time base) or a jump of more than ~2 seconds, it re-anchors to the new time.
+- A call whose scheduled time is already in the past plays **as soon as possible** instead — the engine can delay sounds, not advance them. So call slightly *ahead* of the intended moment.
+- There is no `paused` or `looping` support; use `play()` for those.
+- All clocked calls share a single anchor per engine, so they should all use the same time base.
+
+**Related low-level methods:**
+
+```dart
+// Delay a sound by an exact number of samples (this is what playClocked
+// uses internally). Start paused, set the delay, then unpause:
+final handle = SoLoud.instance.play(sound, paused: true);
+SoLoud.instance.setDelaySamples(handle, 44100); // 1 second at 44100 Hz
+SoLoud.instance.setPause(handle, false);
+
+// How long a voice has been playing (stream time):
+final streamTime = SoLoud.instance.getStreamTime(handle);
+```
+
+**Pros of `playClocked` vs `play`:**
+
+- Sample-accurate spacing between sounds (sub-millisecond), independent of the buffer size
+- No clumping of rapidly launched sounds
+- No rhythm drift over time: each call is placed against a persistent anchor, so timer jitter does not accumulate
+
+**Cons of `playClocked` vs `play`:**
+
+- Higher, constant latency (~2 output buffers behind the given times, by design)
+- You must provide a monotonically increasing time and call slightly ahead of the scheduled time
+- No `paused` start, no looping
+- A single shared anchor: all clocked calls must use the same clock
+
+**Rule of thumb:**
+
+- Use `play()` for one-shot, reactive sounds — UI feedback, gunshots on demand, background music, anything looping — where "as soon as possible" is the right answer and the lowest latency matters.
+- Use `playClocked()` for *scheduled* sound — metronomes, step sequencers, rhythm games, footstep or machine-gun patterns, and any rapid repeated effect that must not clump. If you are calling `play()` from a periodic timer and the rhythm matters, switch those calls to `playClocked()` with an accumulated time and stop worrying about the buffer size.
+
+See the `example/metronome/metronome.dart` for a demo of clocked playback.
+
 ## Playback Controls
 
 ### Pausing and Resuming
