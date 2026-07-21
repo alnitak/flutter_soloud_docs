@@ -80,7 +80,7 @@ And both are available on mixing buses as `bus.playClocked(...)` and `bus.play3d
 - The first clocked play after `init()` anchors your clock to the audio clock and plays about **two output buffers later**. This built-in lead guarantees there is always at least one buffer of slack to absorb the jitter of your timer/clock calls.
 - Times must be **monotonically increasing**. If the engine sees the clock going backwards (e.g. a new session with its own time base) or a jump of more than ~2 seconds, it re-anchors to the new time.
 - A call whose scheduled time is already in the past plays **as soon as possible** instead — the engine can delay sounds, not advance them. So call slightly *ahead* of the intended moment.
-- There is no `paused` or `looping` support; use `play()` for those.
+- There is no `paused` or `looping` support; use `setPause()` or `setLooping()` for those.
 - All clocked calls share a single anchor per engine, so they should all use the same time base.
 
 **Related low-level methods:**
@@ -106,7 +106,6 @@ final streamTime = SoLoud.instance.getStreamTime(handle);
 
 - Higher, constant latency (~2 output buffers behind the given times, by design)
 - You must provide a monotonically increasing time and call slightly ahead of the scheduled time
-- No `paused` start, no looping
 - A single shared anchor: all clocked calls must use the same clock
 
 **Rule of thumb:**
