@@ -94,6 +94,11 @@ SoLoud.instance.setPause(handle, false);
 
 // How long a voice has been playing (stream time):
 final streamTime = SoLoud.instance.getStreamTime(handle);
+
+// Reset the clocked-play clock: the next playClocked/play3dClocked call
+// re-anchors to your time base as if no clocked play was ever made. Useful
+// when starting a new scheduling session or resuming a paused clock.
+SoLoud.instance.resetStreamTime();
 ```
 
 **Pros of `playClocked` vs `play`:**
