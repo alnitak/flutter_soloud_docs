@@ -118,7 +118,59 @@ SoLoud.instance.resetStreamTime();
 - Use `play()` for one-shot, reactive sounds — UI feedback, gunshots on demand, background music, anything looping — where "as soon as possible" is the right answer and the lowest latency matters.
 - Use `playClocked()` for *scheduled* sound — metronomes, step sequencers, rhythm games, footstep or machine-gun patterns, and any rapid repeated effect that must not clump. If you are calling `play()` from a periodic timer and the rhythm matters, switch those calls to `playClocked()` with an accumulated time and stop worrying about the buffer size.
 
-See the `example/metronome/metronome.dart` for a demo of clocked playback.
+See `example/lib/metronome/metronome.dart` for a demo of clocked playback.
+
+## Scheduling on the engine clock: `playScheduled`
+
+`playClocked()` is fed with *your* clock and can't schedule more than ~2 seconds ahead (longer gaps look like a clock jump and get re-anchored). When you need to schedule sounds at absolute times — a music score, a "playback manifest", cutscenes — use the engine's own clock instead:
+
+```dart
+// The engine's global stream time. Advances only while audio is mixing.
+final now = SoLoud.instance.getEngineTime();
+
+// Start a sound at an absolute engine time, with sample accuracy, at any
+// distance in the future. Optional [duration] stops it automatically.
+SoundHandle playScheduled(
+  AudioSource sound,
+  Duration atTime, {
+  Duration? duration,
+  int busId = 0,
+  double volume = 1,
+  double pan = 0,
+});
+
+// Stop or fade a sound at an absolute engine time. Both are
+// sample-accurate; [thenStop] stops the sound when the fade ends.
+void stopScheduled(SoundHandle handle, Duration atTime);
+void fadeScheduled(
+  SoundHandle handle,
+  Duration atTime,
+  double to,
+  Duration time, {
+  bool thenStop = false,
+});
+```
+
+Read the clock once, schedule a batch against it, and cancel anything still pending on pause:
+
+```dart
+final now = SoLoud.instance.getEngineTime();
+for (final note in upcomingNotes) {
+  final atTime = now + note.offsetFromNow;
+  final handle = SoLoud.instance.playScheduled(note.source, atTime);
+  SoLoud.instance.stopScheduled(handle, atTime + note.duration);
+}
+
+// On pause: cancel sounds that haven't started yet.
+final cutoff = SoLoud.instance.getEngineTime();
+```
+
+Times in the past are harmless: a `playScheduled` in the past plays as soon as possible, a `stopScheduled`/`fadeScheduled` in the past applies immediately. There is no anchor to reset and no time-window limit. Scheduled stops are sample-accurate — unlike `scheduleStop()`, which measures from call time and is quantized to buffer boundaries. Also available as `bus.playScheduled(...)`.
+
+**`playClocked` or `playScheduled`?**
+
+- `playClocked` is better for **rapid, open-ended** sounds driven by your own loop (metronome, game SFX patterns): fire-and-forget with your own time base, no clock queries, and its built-in 2-buffer lead absorbs timer jitter automatically.
+- `playScheduled` is better for **pre-planned** playback (scores, manifests): schedule arbitrarily far ahead, pin stops and fades to absolute times, and cancel pending sounds on pause. The price is reading `getEngineTime()` and doing the anchoring yourself — keep a lead of ~100–200 ms so calls always land ahead of their scheduled time.
 
 ## Playback Controls
 
