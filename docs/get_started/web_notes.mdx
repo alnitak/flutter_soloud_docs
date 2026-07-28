@@ -18,7 +18,7 @@ To add the plugin to a web app, add the following lines to the `<body>` section 
 
 ## Build and run with WebAssembly
 
-The web build relies on a WebAssembly module that uses `SharedArrayBuffer` for the audio thread. Chrome only allows `SharedArrayBuffer` when the page is served with cross-origin isolation headers:
+The web build relies on a WebAssembly module that uses `SharedArrayBuffer` for the audio thread. Browsers only allow `SharedArrayBuffer` when the page is served with cross-origin isolation headers:
 
 ```http
 Cross-Origin-Opener-Policy: same-origin
@@ -46,6 +46,42 @@ DataCloneError: Failed to execute 'postMessage' on 'Worker': SharedArrayBuffer t
 ```
 
 If you need to run without `--wasm` (for example, with a custom hot-reload proxy), make sure the server you use to open the app sends the COOP/COEP headers above.
+
+### Deploying to your own server
+
+`flutter build web --wasm` only produces static files — it is up to your web server to send the COOP/COEP headers on every response. If they are missing, the app will log a `not cross-origin isolated` warning and the audio engine will not start. Configuration examples:
+
+**nginx** (inside the `server` or `location` block):
+
+```nginx
+add_header Cross-Origin-Opener-Policy same-origin always;
+add_header Cross-Origin-Embedder-Policy require-corp always;
+```
+
+**Apache** (requires `mod_headers`):
+
+```apache
+Header always set Cross-Origin-Opener-Policy "same-origin"
+Header always set Cross-Origin-Embedder-Policy "require-corp"
+```
+
+**Caddy:**
+
+```caddy
+header Cross-Origin-Opener-Policy same-origin
+header Cross-Origin-Embedder-Policy require-corp
+```
+
+After reloading the server, verify that the headers are sent:
+
+```bash
+curl -sI https://your-server.example/ | grep -i cross-origin
+```
+
+Two things to keep in mind:
+
+- Cross-origin isolation requires a secure context, so the app must be served over **HTTPS**.
+- With `require-corp`, any resource loaded from another origin (CDN assets, fonts, third-party APIs) must send a `Cross-Origin-Resource-Policy: cross-origin` header or be fetched with CORS, otherwise the browser will block it.
 
 ---
 
