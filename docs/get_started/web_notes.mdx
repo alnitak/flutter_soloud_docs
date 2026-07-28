@@ -97,4 +97,4 @@ flutter run -d chrome --wasm --web-browser-flag '--disable-web-security' -t lib/
 ---
 
 ***It is not possible to read a local audio file directly*** on the web. For this reason, `loadMem()` has been added, which requires the `Uint8List` byte buffer of the audio file.
-***IMPORTANT***: `loadMem()` with mode `LoadMode.memory` used on the web platform will freeze the UI for the time needed to decompress the audio file. Please use it with mode `LoadMode.disk` or load your sound when the app starts.
+***NOTE***: on the web the `mode` parameter of `loadMem()` is ignored (`LoadMode.disk` is not possible, since browsers cannot read from the local file system). The audio data is instead fed to the engine in chunks, yielding to the event loop between each chunk, so even large files should not freeze the UI.
