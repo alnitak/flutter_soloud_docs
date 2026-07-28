@@ -36,6 +36,142 @@ To make thisgs simplier and faster in some circumstances, you can use the `playS
 SoLoud.instance.playSource(assets: 'assets/your-audio-file.mp3'); // accepts files and urls also
 ```
 
+## Sample-accurate scheduling with `playClocked`
+
+When you call `play()`, the sound starts at the beginning of the **next output audio buffer**. This has two consequences:
+
+- the delay between your call and the audible start is anywhere between 0 and one buffer (~46 ms with the default buffer size of 2048 samples at 44100 Hz, ~93 ms at 4096), and
+- every sound started within the same buffer begins at the **exact same sample**. Rapidly launched sounds "clump" together (they sum into one louder sound), and periodic sounds — a metronome being the classic example — get an audibly irregular rhythm: the spacing between ticks becomes a multiple of the buffer size instead of the spacing you asked for.
+
+`playClocked()` solves this by scheduling the sound at a given *time* instead of "as soon as possible":
+
+```dart
+SoundHandle playClocked(
+  AudioSource sound,
+  Duration soundTime, {
+  int busId = 0,
+  double volume = 1,
+  double pan = 0,
+});
+```
+
+You pass your app's own "physics time" — any monotonically increasing clock in `Duration` form. The first call anchors that clock to the audio output clock; every following call is then placed on the output timeline with **sample accuracy**, so the spacing between sounds matches the spacing of the given times regardless of the engine buffer size:
+
+```dart
+var physicsTime = Duration.zero;
+
+// Metronome: an even rhythm even with a large audio buffer.
+Timer.periodic(const Duration(milliseconds: 100), (_) {
+  physicsTime += const Duration(milliseconds: 100);
+  SoLoud.instance.playClocked(tickSound, physicsTime);
+});
+```
+
+The 3D variant works the same way, with position and velocity instead of pan:
+
+```dart
+SoLoud.instance.play3dClocked(sound, physicsTime, posX, posY, posZ);
+```
+
+And both are available on mixing buses as `bus.playClocked(...)` and `bus.play3dClocked(...)`.
+
+**How it behaves:**
+
+- The first clocked play after `init()` anchors your clock to the audio clock and plays about **two output buffers later**. This built-in lead guarantees there is always at least one buffer of slack to absorb the jitter of your timer/clock calls.
+- Times must be **monotonically increasing**. If the engine sees the clock going backwards (e.g. a new session with its own time base) or a jump of more than ~2 seconds, it re-anchors to the new time.
+- A call whose scheduled time is already in the past plays **as soon as possible** instead — the engine can delay sounds, not advance them. So call slightly *ahead* of the intended moment.
+- There is no `paused` or `looping` support; use `setPause()` or `setLooping()` for those.
+- All clocked calls share a single anchor per engine, so they should all use the same time base.
+
+**Related low-level methods:**
+
+```dart
+// Delay a sound by an exact number of samples (this is what playClocked
+// uses internally). Start paused, set the delay, then unpause:
+final handle = SoLoud.instance.play(sound, paused: true);
+SoLoud.instance.setDelaySamples(handle, 44100); // 1 second at 44100 Hz
+SoLoud.instance.setPause(handle, false);
+
+// How long a voice has been playing (stream time):
+final streamTime = SoLoud.instance.getStreamTime(handle);
+
+// Reset the clocked-play clock: the next playClocked/play3dClocked call
+// re-anchors to your time base as if no clocked play was ever made. Useful
+// when starting a new scheduling session or resuming a paused clock.
+SoLoud.instance.resetStreamTime();
+```
+
+**Pros of `playClocked` vs `play`:**
+
+- Sample-accurate spacing between sounds (sub-millisecond), independent of the buffer size
+- No clumping of rapidly launched sounds
+- No rhythm drift over time: each call is placed against a persistent anchor, so timer jitter does not accumulate
+
+**Cons of `playClocked` vs `play`:**
+
+- Higher, constant latency (~2 output buffers behind the given times, by design)
+- You must provide a monotonically increasing time and call slightly ahead of the scheduled time
+- A single shared anchor: all clocked calls must use the same clock
+
+**Rule of thumb:**
+
+- Use `play()` for one-shot, reactive sounds — UI feedback, gunshots on demand, background music, anything looping — where "as soon as possible" is the right answer and the lowest latency matters.
+- Use `playClocked()` for *scheduled* sound — metronomes, step sequencers, rhythm games, footstep or machine-gun patterns, and any rapid repeated effect that must not clump. If you are calling `play()` from a periodic timer and the rhythm matters, switch those calls to `playClocked()` with an accumulated time and stop worrying about the buffer size.
+
+See `example/lib/metronome/metronome.dart` for a demo of clocked playback.
+
+## Scheduling on the engine clock: `playScheduled`
+
+`playClocked()` is fed with *your* clock and can't schedule more than ~2 seconds ahead (longer gaps look like a clock jump and get re-anchored). When you need to schedule sounds at absolute times — a music score, a "playback manifest", cutscenes — use the engine's own clock instead:
+
+```dart
+// The engine's global stream time. Advances only while audio is mixing.
+final now = SoLoud.instance.getEngineTime();
+
+// Start a sound at an absolute engine time, with sample accuracy, at any
+// distance in the future. Optional [duration] stops it automatically.
+SoundHandle playScheduled(
+  AudioSource sound,
+  Duration atTime, {
+  Duration? duration,
+  int busId = 0,
+  double volume = 1,
+  double pan = 0,
+});
+
+// Stop or fade a sound at an absolute engine time. Both are
+// sample-accurate; [thenStop] stops the sound when the fade ends.
+void stopScheduled(SoundHandle handle, Duration atTime);
+void fadeScheduled(
+  SoundHandle handle,
+  Duration atTime,
+  double to,
+  Duration time, {
+  bool thenStop = false,
+});
+```
+
+Read the clock once, schedule a batch against it, and cancel anything still pending on pause:
+
+```dart
+final now = SoLoud.instance.getEngineTime();
+for (final note in upcomingNotes) {
+  final atTime = now + note.offsetFromNow;
+  final handle = SoLoud.instance.playScheduled(note.source, atTime);
+  SoLoud.instance.stopScheduled(handle, atTime + note.duration);
+}
+
+// On pause: cancel sounds that haven't started yet.
+final cutoff = SoLoud.instance.getEngineTime();
+```
+
+Times in the past are harmless: a `playScheduled` in the past plays as soon as possible, a `stopScheduled`/`fadeScheduled` in the past applies immediately. There is no anchor to reset and no time-window limit. Scheduled stops are sample-accurate — unlike `scheduleStop()`, which measures from call time and is quantized to buffer boundaries. Also available as `bus.playScheduled(...)`.
+
+**`playClocked` or `playScheduled`?**
+
+- `playClocked` is better for **rapid, open-ended** sounds driven by your own loop (metronome, game SFX patterns): fire-and-forget with your own time base, no clock queries, and its built-in 2-buffer lead absorbs timer jitter automatically.
+- `playScheduled` is better for **pre-planned** playback (scores, manifests): schedule arbitrarily far ahead, pin stops and fades to absolute times, and cancel pending sounds on pause. The price is reading `getEngineTime()` and doing the anchoring yourself — keep a lead of ~100–200 ms so calls always land ahead of their scheduled time.
+
 ## Playback Controls
 
 ### Pausing and Resuming
@@ -76,7 +212,8 @@ Enable looping during playback:
 final handle = await SoLoud.instance.play(
   sound,
   looping: true,
-  loopingStartAt: Duration(seconds: 1),
+  loopingStartAt: Duration(seconds: 1), // optional
+  loopingEndAt: Duration(seconds: 5),   // optional
 );
 ```
 
@@ -91,6 +228,12 @@ SoLoud.instance.setLoopPoint(handle, Duration(seconds: 1));
 
 // Check if looping
 final isLooping = SoLoud.instance.getLooping(handle);
+
+/// Get the exclusive loop end point of a currently playing sound.
+Duration? SoLoud.instance.getLoopEndPoint(handle);
+
+/// Set the exclusive loop end point of a currently playing sound.
+SoLoud.instance.setLoopEndPoint(handle, time);
 ```
 
 ## Playback Speed

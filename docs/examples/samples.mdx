@@ -25,16 +25,24 @@ The *flutter_soloud* package includes several example projects demonstrating var
 
 ### Audio Generation
 - `lib/waveform/waveform.dart` - Generate and control waveforms in real-time
-- `lib/metronome/metronome.dart` - Create a precise metronome
+- `lib/metronome/metronome.dart` - Create a precise metronome. Shows how to use `playClocked()`
 
 ### Streaming Examples
+- #### Released and Preserved buffer Modes
 - `lib/buffer_stream/generate.dart` - Generate PCM audio in an `Isolate`
 - `lib/buffer_stream/websocket.dart` - Stream PCM and Opus audio via WebSocket
 - `lib/buffer_stream/web_radio.dart` - Receive streamed audio from online web radio
 - `lib/buffer_stream/simple_noise_stream.dart` - For testing and undestanding audio streaming and buffering
 
+- #### Pull buffer streaming
+- `lib/pull_buffer/file_stream.dart` - It demonstrates the callback-driven pull model and the custom seek/progress bar.
+- `lib/pull_buffer/http_range_stream.dart` - Streams an audio file from a remote server using HTTP Range requests and feeds it to an [AudioSource].
+
 ### Mixing Busses
 - `lib/mixing_bus/mixing_bus.dart` - How to use a mixing bus
+
+### Mixer Output Capture
+- `lib/mixer_output_capture/mixer_output_capture.dart` - Capture the master mixer output as a stream of audio data.
 
 ### Audio Effects
 | Example | Description |

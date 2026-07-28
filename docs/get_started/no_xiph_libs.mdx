@@ -1,5 +1,5 @@
 ---
-title: Without Opus/Vorbis
+title: No Xiph libs
 description: Configure builds without OGG, Opus, Vorbis, and FLAC libraries to reduce binary size
 ---
 
@@ -44,7 +44,7 @@ or int the `android/build.gradle.kts` add this snippet:
 allprojects { extra["NO_XIPH_LIBS"] = "true" }
 ```
 
-### Command Line Build (should work on all platforms)
+### Command Line Build (should work on all platforms except web)
 ```bash
 # Build without Opus/Ogg
 flutter clean

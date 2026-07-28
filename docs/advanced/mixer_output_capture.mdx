@@ -1,0 +1,229 @@
+---
+title: Mixer Output Capture
+description: Capture the master mixer output as a stream for recording, processing, or streaming
+---
+
+## Overview
+
+*flutter_soloud* can capture the master mixer output as a stream of raw audio data. This is useful for:
+
+- Recording the final mixed audio to a file
+- Streaming the mixed output to another service or device
+- Processing the master output in real-time
+
+The captured data is read from a circular buffer managed by the native engine. The stream emits chunks as they become available, and any remaining data is flushed when capture stops.
+
+<Info>
+Mixer output capture is a new feature. It is supported on all platforms, but the web build requires the WebAssembly module (`--wasm`).
+</Info>
+
+## Basic Workflow
+
+### 1. Start the Capture Stream
+
+Call `startMixerOutputStream()` after initializing SoLoud:
+
+```dart
+await SoLoud.instance.init();
+
+final stream = SoLoud.instance.startMixerOutputStream(
+  format: MixerOutputFormat.pcmF32le,
+  sampleRate: -1,                 // Use the engine sample rate
+  channels: -1,                   // Use the engine channel count
+  bufferSizeBytes: 1024 * 1024,   // 1 MB circular buffer
+  notificationThresholdBytes: 4096, // Emit a chunk every 4 KB (compressed/PCM threshold mode)
+);
+```
+
+### 2. Listen to the Stream
+
+Subscribe to the stream and write the chunks to a file, socket, or any other consumer:
+
+```dart
+final subscription = stream.listen((Uint8List chunk) {
+  // Append the chunk to a file or send it over the network
+  fileSink.add(chunk);
+});
+```
+
+### 3. Play Sounds as Usual
+
+While the capture is running, all sounds played through the engine are mixed into the captured output:
+
+```dart
+final sound = await SoLoud.instance.loadAsset('assets/music.mp3');
+await SoLoud.instance.play(sound);
+```
+
+### 4. Stop the Capture
+
+When you are done, call `stopMixerOutputStream()` to stop the capture and flush any remaining data:
+
+```dart
+SoLoud.instance.stopMixerOutputStream();
+await subscription.cancel();
+await fileSink.close();
+```
+
+## Output Format
+
+The `MixerOutputFormat` enum controls the format of the captured data:
+
+| Format | Description |
+|--------|-------------|
+| `MixerOutputFormat.pcmF32le` | 32-bit floating point PCM, little-endian (default) |
+| `MixerOutputFormat.pcmS8` | 8-bit signed PCM |
+| `MixerOutputFormat.pcmS16le` | 16-bit signed PCM, little-endian |
+| `MixerOutputFormat.pcmS32le` | 32-bit signed PCM, little-endian |
+| `MixerOutputFormat.opus` | Opus encoded audio |
+| `MixerOutputFormat.vorbis` | Vorbis encoded audio |
+| `MixerOutputFormat.flac` | FLAC encoded audio |
+| `MixerOutputFormat.wav` | WAV encoded audio (16-bit PCM in a RIFF/WAVE container). Streams incrementally, but the header size fields must be patched after capture stops. |
+
+<Info>
+Compressed formats (`opus`, `vorbis`, `flac`) require the plugin to be built with the Xiph libraries. `wav` is self-contained and does not require Xiph. See the [Without Xiph libs](/get_started/no_xiph_libs) page for more details.
+</Info>
+
+## WAV Format Caveat
+
+When using `MixerOutputFormat.wav`, the stream behaves like the other formats: you receive a 44-byte header at the start of the stream, followed by PCM chunks as they are produced. However, the WAV container stores the total PCM size in the `RIFF` and `data` chunk headers, so those fields are placeholders until the capture ends.
+
+To produce a valid WAV file, you must:
+
+1. Capture the stream as usual.
+2. Stop the capture with `stopMixerOutputStream()`.
+3. Call `SoLoud.instance.getMixerOutputWavHeader()` to get the updated 44-byte header.
+4. Overwrite the first 44 bytes of the saved file with that header.
+
+```dart
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter_soloud/flutter_soloud.dart';
+
+Future<void> recordWavMixerOutput(String outputPath) async {
+  await SoLoud.instance.init();
+
+  final file = File(outputPath);
+  final raf = file.openSync(mode: FileMode.writeOnly);
+
+  final stream = SoLoud.instance.startMixerOutputStream(
+    format: MixerOutputFormat.wav,
+    bufferSizeBytes: 1024 * 1024,
+    notificationThresholdBytes: 4096,
+  );
+
+  final subscription = stream.listen((Uint8List chunk) {
+    raf.writeFromSync(chunk);
+  });
+
+  // Play a sound
+  final sound = await SoLoud.instance.loadAsset('assets/music.mp3');
+  await SoLoud.instance.play(sound);
+
+  // Record for 5 seconds
+  await Future<void>.delayed(const Duration(seconds: 5));
+
+  SoLoud.instance.stopMixerOutputStream();
+  await subscription.cancel();
+  await raf.close();
+
+  // Patch the WAV header with the final sizes.
+  final header = SoLoud.instance.getMixerOutputWavHeader();
+  if (header.length == 44) {
+    final patchRaf = file.openSync(mode: FileMode.writeOnlyAppend)
+      ..setPositionSync(0)
+      ..writeFromSync(header);
+    await patchRaf.close();
+  }
+}
+```
+
+<Info>
+If you do not patch the header, the WAV file will still contain all the correct audio data, but media players may report a duration of zero or refuse to play it because the `data` chunk size will be `0`.
+</Info>
+
+## Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `format` | The desired output format. PCM formats are always available; compressed formats require Xiph libraries. |
+| `sampleRate` | The sample rate of the captured audio. Use `-1` to match the engine sample rate. |
+| `channels` | The number of channels. Use `-1` to match the engine channel count. |
+| `bufferSizeBytes` | Total size of the circular capture buffer in bytes. A larger buffer allows more time between reads. |
+| `notificationThresholdBytes` | Number of bytes that must be available before a chunk is emitted. Used for compressed formats and for PCM when `chunkPCMFrames` is `-1`. Smaller values give lower latency but more callbacks. |
+| `chunkPCMFrames` | Fixed number of PCM frames per emitted chunk. PCM only; must be `-1` or at least `2048`. The emitted byte size is `chunkPCMFrames * channels * bytesPerSample`. |
+
+## Check if Capture is Running
+
+You can check whether the mixer output capture is currently active:
+
+```dart
+if (SoLoud.instance.isMixerOutputStreamRunning) {
+  // Capture is active
+}
+```
+
+## Important Notes
+
+- The captured stream is a **broadcast stream**. Multiple listeners can subscribe to it, but each listener receives the same chunks independently.
+- When the capture is stopped, any remaining data in the circular buffer is flushed synchronously. This ensures that compressed formats (such as Opus or FLAC) are properly finalized.
+- For PCM formats, you can request fixed-size chunks by setting `chunkPCMFrames`. This is useful for network streaming or any consumer that needs a stable frame size. Compressed formats always use `notificationThresholdBytes` because the encoder determines the packet boundaries.
+- If the stream is already running, calling `startMixerOutputStream()` again returns the existing stream.
+- The capture stream is automatically closed when `SoLoud.instance.deinit()` is called.
+
+## Fixed-size PCM Chunks
+
+For live streaming or network audio, it is often easier to consume a fixed number of frames per chunk instead of variable-sized threshold chunks. Use `chunkPCMFrames` to emit chunks of exactly the requested size:
+
+```dart
+final stream = SoLoud.instance.startMixerOutputStream(
+  format: MixerOutputFormat.pcmS16le,
+  sampleRate: 44100,
+  channels: 2,
+  chunkPCMFrames: 2048, // Each chunk is 2048 stereo frames
+);
+```
+
+Each emitted chunk is exactly `chunkPCMFrames * channels * bytesPerSample` bytes, except for the final tail that is flushed when `stopMixerOutputStream()` is called. `chunkPCMFrames` must be `-1` or at least `2048`. It is only valid for PCM formats; for compressed formats, use `notificationThresholdBytes` instead.
+
+### Main-thread Latency and Capture Gaps
+
+The native capture thread notifies Dart when a chunk is ready and waits for Dart to advance the read position. If the Dart thread is busy with synchronous work while a chunk is ready, the notification is delayed and the next chunk interval grows by roughly the time Dart was blocked. For example, a 500 ms main-thread stall produces a ~500 ms gap between PCM chunks.
+
+To avoid gaps in the captured stream, keep synchronous work off the Dart thread while capture is running, or use a larger buffer if occasional bursts are acceptable. It is also possible to use an Isolate to run capture flow in a separate thread. The `example/lib/mixer_capture/isolate_capture_test.dart` example demonstrates how to use the capture flow inside an Isolate other than the main.
+
+## Simple Example
+
+```dart
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter_soloud/flutter_soloud.dart';
+
+Future<void> recordMixerOutput(String outputPath) async {
+  await SoLoud.instance.init();
+
+  final file = File(outputPath);
+  final sink = file.openWrite();
+
+  final stream = SoLoud.instance.startMixerOutputStream(
+    format: MixerOutputFormat.pcmS16le,
+    bufferSizeBytes: 1024 * 1024,
+    notificationThresholdBytes: 4096,
+  );
+
+  final subscription = stream.listen((Uint8List chunk) {
+    sink.add(chunk);
+  });
+
+  // Play a sound
+  final sound = await SoLoud.instance.loadAsset('assets/music.mp3');
+  await SoLoud.instance.play(sound);
+
+  // Record for 5 seconds
+  await Future<void>.delayed(const Duration(seconds: 5));
+
+  SoLoud.instance.stopMixerOutputStream();
+  await subscription.cancel();
+  await sink.close();
+}
+```
