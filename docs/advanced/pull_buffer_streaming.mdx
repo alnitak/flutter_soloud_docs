@@ -13,13 +13,7 @@ This is useful for:
 - Encrypted or DRM-protected content that must be decrypted before decoding
 - Custom protocols or asset pipelines that cannot expose a plain file path
 
-The pull buffer maintains a fixed-size circular buffer of decoded audio. When the decoded data ahead of the playhead falls below a configured threshold, the engine calls `onMoreDataIsNeeded` to request the next chunk of encoded data. You then supply the chunk with `addPullBufferDataStream`. The engine detects the end of the stream automatically when the sequential feed reaches `audioSizeBytes`, so you do not need to mark the stream as ended manually.
-
-<p align="center"><img width="438" height="72" alt="pullBuffer" src="https://github.com/user-attachments/assets/023549b3-79bf-4dff-ae85-181ce84d1510" /></p>
-
-![pullBuffer](https://github.com/user-attachments/assets/023549b3-79bf-4dff-ae85-181ce84d1510)
-
-<img width="438" height="72" alt="pullBuffer_web" src="https://github.com/user-attachments/assets/fdb7d150-8150-4cb9-80e7-3bc567ae209c" />
+The pull buffer maintains a fixed-size circular buffer of decoded audio. When the decoded data ahead of the playhead falls below a configured threshold, the engine calls `onMoreDataIsNeeded` to request the next chunk of encoded data. You then supply the chunk with `addPullBufferDataStream`. The engine automatically detects the end of the stream when the sequential feed reaches `audioSizeBytes`, so you do not need to manually mark the stream as ended.
 
 ![pullBuffer2](https://github.com/user-attachments/assets/fdb7d150-8150-4cb9-80e7-3bc567ae209c)
 
