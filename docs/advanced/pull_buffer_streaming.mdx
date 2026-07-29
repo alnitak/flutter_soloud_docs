@@ -15,7 +15,7 @@ This is useful for:
 
 The pull buffer maintains a fixed-size circular buffer of decoded audio. When the decoded data ahead of the playhead falls below a configured threshold, the engine calls `onMoreDataIsNeeded` to request the next chunk of encoded data. You then supply the chunk with `addPullBufferDataStream`. The engine automatically detects the end of the stream when the sequential feed reaches `audioSizeBytes`, so you do not need to manually mark the stream as ended.
 
-![pullBuffer2](https://github.com/user-attachments/assets/fdb7d150-8150-4cb9-80e7-3bc567ae209c)
+![pullBuffer2](https://github.com/user-attachments/assets/7f3ead7c-6b9b-4c4d-8f05-65f423beedc3)
 
 ## Basic Usage
 
