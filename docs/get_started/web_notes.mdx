@@ -35,24 +35,6 @@ For release builds, use:
 ```bash
 flutter build web --wasm
 ```
-
-### Cross-origin isolation (COOP/COEP) is no longer required
-
-Since version 4.1.6, the WASM module is built **without** pthreads/`SharedArrayBuffer`. The engine never spawns threads at runtime on the web — audio rendering runs on the main browser thread via the Web Audio API — so the plugin no longer needs cross-origin isolation headers (`Cross-Origin-Opener-Policy` / `Cross-Origin-Embedder-Policy`). This means:
-
-- `flutter run -d chrome` works out of the box (no `--wasm` flag needed for the plugin).
-- The app can be deployed to any static hosting, including game portals like CrazyGames or Poki that cannot send COOP/COEP headers.
-- No special server configuration is required.
-
-If you are on a version **older than 4.1.6**, the WASM module uses `SharedArrayBuffer` and the app must be served with:
-
-```http
-Cross-Origin-Opener-Policy: same-origin
-Cross-Origin-Embedder-Policy: require-corp
-```
-
-In that case either upgrade the plugin, or serve the app with the headers above (e.g. via `flutter run -d chrome --wasm`, which enables them on the dev server).
-
 ---
 
 **`loadUrl()`** may produce the following error when the app is run:
