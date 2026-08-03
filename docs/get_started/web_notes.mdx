@@ -16,16 +16,15 @@ To add the plugin to a web app, add the following lines to the `<body>` section 
 <script src="assets/packages/flutter_soloud/web/init_module.dart.js" defer></script>
 ```
 
-## Build and run with WebAssembly
+## Build and run
 
-The web build relies on a WebAssembly module that uses `SharedArrayBuffer` for the audio thread. Browsers only allow `SharedArrayBuffer` when the page is served with cross-origin isolation headers:
+Run the app like any other Flutter web app:
 
-```http
-Cross-Origin-Opener-Policy: same-origin
-Cross-Origin-Embedder-Policy: require-corp
+```bash
+flutter run -d chrome -t lib/main.dart
 ```
 
-Flutter's `--wasm` mode automatically enables these headers in the dev server, so the recommended run command is:
+or, for better performance, with the WasmGC renderer:
 
 ```bash
 flutter run -d chrome --wasm -t lib/main.dart
@@ -36,53 +35,6 @@ For release builds, use:
 ```bash
 flutter build web --wasm
 ```
-
-### Why does `flutter run -d chrome` without `--wasm` fail?
-
-Without `--wasm`, the Flutter dev server does not send the cross-origin isolation headers required by `SharedArrayBuffer`. The browser then throws:
-
-```
-DataCloneError: Failed to execute 'postMessage' on 'Worker': SharedArrayBuffer transfer requires self.crossOriginIsolated.
-```
-
-If you need to run without `--wasm` (for example, with a custom hot-reload proxy), make sure the server you use to open the app sends the COOP/COEP headers above.
-
-### Deploying to your own server
-
-`flutter build web --wasm` only produces static files — it is up to your web server to send the COOP/COEP headers on every response. If they are missing, the app will log a `not cross-origin isolated` warning and the audio engine will not start. Configuration examples:
-
-**nginx** (inside the `server` or `location` block):
-
-```nginx
-add_header Cross-Origin-Opener-Policy same-origin always;
-add_header Cross-Origin-Embedder-Policy require-corp always;
-```
-
-**Apache** (requires `mod_headers`):
-
-```apache
-Header always set Cross-Origin-Opener-Policy "same-origin"
-Header always set Cross-Origin-Embedder-Policy "require-corp"
-```
-
-**Caddy:**
-
-```caddy
-header Cross-Origin-Opener-Policy same-origin
-header Cross-Origin-Embedder-Policy require-corp
-```
-
-After reloading the server, verify that the headers are sent:
-
-```bash
-curl -sI https://your-server.example/ | grep -i cross-origin
-```
-
-Two things to keep in mind:
-
-- Cross-origin isolation requires a secure context, so the app must be served over **HTTPS**.
-- With `require-corp`, any resource loaded from another origin (CDN assets, fonts, third-party APIs) must send a `Cross-Origin-Resource-Policy: cross-origin` header or be fetched with CORS, otherwise the browser will block it.
-
 ---
 
 **`loadUrl()`** may produce the following error when the app is run:
@@ -91,7 +43,7 @@ Two things to keep in mind:
 This is due to the default behavior of HTTP servers which don't allow requests outside their domain. Refer to [this guide](https://enable-cors.org/server.html) to learn how to enable your server to handle this situation.
 Instead, if you run the app locally, you could run the app with something like the following command:
 ```bash
-flutter run -d chrome --wasm --web-browser-flag '--disable-web-security' -t lib/main.dart --release
+flutter run -d chrome --web-browser-flag '--disable-web-security' -t lib/main.dart --release
 ```
 
 ---

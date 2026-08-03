@@ -13,7 +13,9 @@ This is useful for:
 - Encrypted or DRM-protected content that must be decrypted before decoding
 - Custom protocols or asset pipelines that cannot expose a plain file path
 
-The pull buffer maintains a fixed-size circular buffer of decoded audio. When the decoded data ahead of the playhead falls below a configured threshold, the engine calls `onMoreDataIsNeeded` to request the next chunk of encoded data. You then supply the chunk with `addPullBufferDataStream`. The engine detects the end of the stream automatically when the sequential feed reaches `audioSizeBytes`, so you do not need to mark the stream as ended manually.
+The pull buffer maintains a fixed-size circular buffer of decoded audio. When the decoded data ahead of the playhead falls below a configured threshold, the engine calls `onMoreDataIsNeeded` to request the next chunk of encoded data. You then supply the chunk with `addPullBufferDataStream`. The engine automatically detects the end of the stream when the sequential feed reaches `audioSizeBytes`, so you do not need to manually mark the stream as ended.
+
+![pullBuffer2](https://github-production-user-asset-6210df.s3.amazonaws.com/192827/628518263-7f3ead7c-6b9b-4c4d-8f05-65f423beedc3.gif?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=AKIAVCODYLSA53PQK4ZA%2F20260729%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20260729T134821Z&X-Amz-Expires=300&X-Amz-Signature=b08306fd06dbb99b21808f757420745c06f69c552d32d857b09e8c1b34d13415&X-Amz-SignedHeaders=host&response-content-type=image%2Fgif)
 
 ## Basic Usage
 
