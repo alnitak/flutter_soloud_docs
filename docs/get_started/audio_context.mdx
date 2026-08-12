@@ -128,7 +128,8 @@ When no unpaused voices remain, the output device follows the configured idle ti
 import GoogleMobileAds
 
 func application(_ application: UIApplication,
-                 didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+                 didFinishLaunchingWithOptions launchOptions: 
+                 [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
  
   // Add this
   MobileAds.shared.audioVideoManager.isAudioSessionApplicationManaged = true
