@@ -10,31 +10,63 @@ Please note that filters for single sounds are not supported on the web.
 
 ## How to use
 
-To add the plugin to a web app, add the following lines to the `<body>` section of `web/index.html`:
+To add the plugin to a web app, add the following line to the `<body>` section of `web/index.html`:
 ```html
-<script src="assets/packages/flutter_soloud/web/libflutter_soloud_plugin.js" defer></script>
 <script src="assets/packages/flutter_soloud/web/init_module.dart.js" defer></script>
 ```
+This script automatically picks the best WASM build for the current page (see below). The old two-tag form that also loads `libflutter_soloud_plugin.js` explicitly is still supported, but no longer needed.
 
-## Build and run
+## Two WASM builds: AudioWorklet when possible
 
-Run the app like any other Flutter web app:
+Since version 4.1.7, the plugin ships two WebAssembly builds and chooses between them at runtime:
+
+- **Multi-threaded (AudioWorklet)** — used when the page is **cross-origin isolated**, i.e. served with:
+  ```http
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+  ```
+  Audio is rendered on a dedicated real-time `AudioWorklet` thread.
+- **Single-threaded** — used everywhere else. Audio is rendered on the main browser thread via the (deprecated) `ScriptProcessorNode`. No special headers are required, so the plugin works on any static hosting, including game portals like CrazyGames or Poki that cannot send COOP/COEP headers.
+
+### Why you should enable COOP/COEP when you can
+
+The multi-threaded build is strictly better whenever the headers are an option:
+
+- **No audio glitches from UI work.** With `ScriptProcessorNode`, mixing happens on the main browser thread — the same thread that runs Flutter's rendering, layout, and the Dart event loop. A busy frame or a GC pause directly starves the audio callback and produces crackles. The `AudioWorklet` build mixes on a separate real-time thread, so audio stays smooth no matter how heavy the UI gets.
+- **Future-proof.** `ScriptProcessorNode` has been deprecated for years and could be removed from browsers; `AudioWorklet` is its designated replacement.
+
+If you control your hosting, enable the headers. For local development, which build you get depends on how you run the app:
 
 ```bash
+# No COOP/COEP headers are sent by the dev server: the page is NOT
+# cross-origin isolated and the single-threaded build is used.
 flutter run -d chrome -t lib/main.dart
-```
 
-or, for better performance, with the WasmGC renderer:
-
-```bash
+# The dev server sends its own COOP: same-origin + COEP: credentialless
+# headers (needed by the WasmGC renderer): the page IS cross-origin
+# isolated and the AudioWorklet build is used. Do NOT add --web-header
+# flags here — see below.
 flutter run -d chrome --wasm -t lib/main.dart
+
+# Manual headers, without --wasm: the flags are applied as-is, the page
+# IS cross-origin isolated and the AudioWorklet build is used.
+flutter run -d chrome \
+  --web-header=Cross-Origin-Opener-Policy=same-origin \
+  --web-header=Cross-Origin-Embedder-Policy=require-corp \
+  -t lib/main.dart
 ```
 
-For release builds, use:
+So the `--web-header` flags are only useful (and only safe) **without** `--wasm`. With `--wasm` the dev server already isolates the page on its own, and your flags get *appended* to Flutter's defaults, producing an invalid conflicting header (`COEP: credentialless, require-corp`) on asset responses. That blocks the plugin's worker threads (`ERR_BLOCKED_BY_RESPONSE` in the console) and the WASM module never finishes loading.
 
-```bash
-flutter build web --wasm
-```
+Two caveats when enabling them:
+
+- Cross-origin isolation requires a secure context, so deploy over **HTTPS**.
+- With `require-corp`, resources loaded from other origins (CDN assets, fonts, third-party APIs) must send a `Cross-Origin-Resource-Policy: cross-origin` header or be fetched with CORS, otherwise the browser blocks them. Also note that COOP/COEP is incompatible with some popup-based flows (e.g. certain Google Auth popups) and with cross-origin iframes used by ad networks — which is exactly why game portals (like CrazyGames and Poki) don't support it.
+
+If the headers are missing, you don't need to do anything: the plugin silently falls back to the single-threaded build.
+
+For release builds, use `flutter build web` or `flutter build web --wasm` — the build command itself is unrelated to the headers; what matters is only whether your server sends them when serving the app.
+
 ---
 
 **`loadUrl()`** may produce the following error when the app is run:
