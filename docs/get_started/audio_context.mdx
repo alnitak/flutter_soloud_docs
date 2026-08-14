@@ -119,6 +119,39 @@ When no unpaused voices remain, the output device follows the configured idle ti
 
 `getAudioDeviceState()` is a cheap synchronous read of the actual backend state: `uninitialized`, `stopped`, `started`, `starting`, or `stopping`. It does not report a pending scheduler request.
 
+### Changing the Output Device
+
+Use `listPlaybackDevices()` to enumerate the OS playback devices and `changeDevice()` to switch the output to one of them (or back to the system default when called without an argument):
+
+```dart
+final devices = SoLoud.instance.listPlaybackDevices();
+await SoLoud.instance.changeDevice(newDevice: devices[1]);
+```
+
+`changeDevice()` returns a `Future` because device enumeration and replacement can block; it runs off the UI isolate, so it won't freeze the app (or trigger an ANR on Android). Await it to know when the swap has finished. The replacement device is only started when the old one was running or the idle policy requires it, so a device stopped via `stopAudioDevice()` or the idle timeout stays stopped across the swap.
+
+<Info>
+On the web only the default output device is returned.
+</Info>
+
+### Automatic Device Start Failures
+
+`play()`, `play3d()`, `setPause()`, `pauseSwitch()`, `speechText()`, `playClocked()`, `play3dClocked()` and `playScheduled()` request the output-device start on a background scheduler instead of blocking for it. This keeps them synchronous and non-blocking, but it also means they **cannot throw** when that start fails — they return before it has been attempted. `SoLoudAudioDeviceFailedToStartCppException` is therefore no longer thrown by these methods.
+
+Instead, subscribe to `SoLoud.instance.audioDeviceStartFailures` to be notified when an automatic start fails (after the backend has already rebuilt the device and retried). Voice state is untouched, so recovery is usually just an explicit start:
+
+```dart
+SoLoud.instance.audioDeviceStartFailures.listen((_) async {
+  try {
+    await SoLoud.instance.startAudioDevice();
+  } on SoLoudAudioDeviceFailedToStartCppException {
+    // Still unavailable: tell the user, or back off and retry later.
+  }
+});
+```
+
+`startAudioDevice()` and `changeDevice()` are the exceptions: they await their device operation and report failures directly to their caller, so they do not emit on this stream.
+
 <Info>
   **iOS and Google Ads**
 
