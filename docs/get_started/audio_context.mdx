@@ -112,12 +112,18 @@ Voice state and output-device state are separate. Pausing a voice preserves its 
 When no unpaused voices remain, the output device follows the configured idle timeout:
 
 - `setAudioDeviceIdleTimeout(Duration.zero)` stops it as soon as possible.
-- A positive duration keeps it running for that grace period.
+- A positive duration keeps it running for that grace period (default is 500 ms).
 - `setAudioDeviceIdleTimeout(null)` keeps it running indefinitely, including across `deinit()` and a later `init()`.
 
-`startAudioDevice()` temporarily starts or prewarms the output and completes after startup finishes. It does not enable permanent keep-alive; if the engine is still idle, the configured timeout begins again. `stopAudioDevice()` is an idle-only conditional stop by default, so it succeeds without interrupting active playback. Use `stopAudioDevice(force: true)` only when the output must be stopped while voices remain active; their voice state is not changed.
+<Info>
+Android stops the audio output device when idle (when no voices are actively playing), releasing the audioserver `AudioMix` partial wakelock. If your app requires the output device to stay open indefinitely on Android, call `SoLoud.instance.setAudioDeviceIdleTimeout(null)`.
+</Info>
 
-`getAudioDeviceState()` is a cheap synchronous read of the actual backend state: `uninitialized`, `stopped`, `started`, `starting`, or `stopping`. It does not report a pending scheduler request.
+`startAudioDevice()` temporarily starts or prewarms the output and completes after startup finishes. It does not enable permanent keep-alive; if the engine is still idle, the configured timeout begins again. Loaded sounds, active voices, and filter states are all preserved across device stop and start, so playback resumes seamlessly.
+
+`stopAudioDevice()` is an idle-only conditional stop by default, so it succeeds without interrupting active playback. Use `stopAudioDevice(force: true)` only when the output must be stopped while voices remain active; their voice state is not changed.
+
+`getAudioDeviceState()` is a cheap synchronous read of the actual current backend state as an `AudioDeviceState` enum: `uninitialized`, `stopped`, `started`, `starting`, or `stopping`. It is safe to call even before `init()`.
 
 ### Changing the Output Device
 

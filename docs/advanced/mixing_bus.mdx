@@ -45,12 +45,16 @@ musicBus.playOnEngine(volume: 0.8, paused: false);
 final explosion = await SoLoud.instance.loadAsset('assets/explosion.mp3');
 final backgroundMusic = await SoLoud.instance.loadAsset('assets/music.mp3');
 
-// Play sounds through the bus...
-await sfxBus.play(explosion);
-await musicBus.play(backgroundMusic, looping: true);
+// Play sounds through the bus (supports scale, looping, and loop regions)...
+final sfxHandle = sfxBus.play(explosion);
+final musicHandle = musicBus.play(
+  backgroundMusic,
+  looping: true,
+  scale: 1.0,
+);
 
 // ...or play it with the usual `play()` method
-await SoLoud.instance.play(explosion, busId: sfxBus.busId);
+final explosionHandle = SoLoud.instance.play(explosion, busId: sfxBus.busId);
 ```
 
 ### 4. Control the Bus
@@ -118,11 +122,15 @@ You can play 3D positioned sounds through a bus:
 
 ```dart
 // Play a 3D sound through the bus
-await sfxBus.play3d(
+final handle = sfxBus.play3d(
   explosion,
   10.0,  // posX
   0.0,   // posY
   5.0,   // posZ
+  velX: 0, velY: 0, velZ: 0,
+  volume: 1.0,
+  scale: 1.0,
+  looping: false,
 );
 ```
 

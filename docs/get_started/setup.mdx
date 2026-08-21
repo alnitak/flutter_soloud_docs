@@ -74,19 +74,28 @@ Initialize SoLoud in your app:
 ```dart
 void main() async {
   await SoLoud.instance.init(
-    sampleRate: 44100,      // Audio quality
-    bufferSize: 2048,       // Buffer size affects latency
-    channels: Channels.stereo,
+    sampleRate: 44100,          // Sample rate (default 44100)
+    bufferSize: 2048,           // Mix buffer size affects latency/stability
+    channels: Channels.stereo,  // Output channels
+    lowLatency: true,           // Native low latency mode
+    devicePeriodFrames: 512,    // Hardware device period (used with renderAheadFrames)
+    renderAheadFrames: 0,       // Render-ahead ring depth (native only, default 0/disabled)
   );
   
   runApp(const MyApp());
 }
 ```
-<Info>The `bufferSize` parameter affects audio latency, which generally means the time it takes from triggering a sound to the sound actually coming out of the speakers. The smaller the latency, the better, but could lead to choppy audio depending on the complexity of the audio processing. The default is 2048, but it can be adjusted to 1024 or 512.</Info>
+
+<Info>
+- **`bufferSize`**: The mixing buffer quantum. The smaller the buffer size, the lower the latency, but smaller buffers leave less CPU headroom for audio DSP/filters. Defaults to 2048.
+- **`renderAheadFrames` / `devicePeriodFrames`**: When `renderAheadFrames > 0` on native platforms, the engine enables the experimental render-ahead ring, which decouples the hardware device period from the mixing buffer size to deliver ultra-low reactive playback latency. See [Playback Controls](/audio/playback#render-ahead-ring-native-only).
+- **`lowLatency`**: Configures native low-latency output modes where available.
+</Info>
 
 ## Best Practices
 
 - Initialize SoLoud early in your app lifecycle
 - Handle initialization errors appropriately
-- Configure buffer size based on your latency and app needs
+- Configure buffer size and render-ahead based on your latency and app needs
 - Clean up resources when your app closes
+

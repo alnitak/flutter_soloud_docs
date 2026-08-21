@@ -8,14 +8,17 @@ description: Learn how to control audio playback
 After loading a sound, you can play it using the `play()` method:
 
 ```dart
-final sound = await soloud.loadAsset('assets/your-audio-file.mp3');
+final sound = await SoLoud.instance.loadAsset('assets/your-audio-file.mp3');
 
-final handle = await SoLoud.instance.play(
+final handle = SoLoud.instance.play(
   sound,
   volume: 1.0,
   pan: 0.0,
   paused: false,
   looping: false,
+  loopingStartAt: Duration.zero,
+  loopingEndAt: null,
+  scale: 1.0,
 );
 
 [...]
@@ -26,14 +29,15 @@ await SoLoud.instance.disposeSource(sound);
 
 **Note:**
 - The returned `handle` uniquely identifies this instance of the playing sound and it becomes invalid when the sound is stopped or ends.
+- `play()` is synchronous and non-blocking.
 - The `sound` remains valid in memory and can be played without lags until `disposeSource()` is called.
 
 The `load*` methods accept the `autoDispose` parameter, which will automatically dispose the sound when all its playing handles are finished.
 
-To make thisgs simplier and faster in some circumstances, you can use the `playSource` method to play audio from the given source and forget about the sound handle and its lifecycle. It will automatically dispose the source when it is finished playing:
+To make things simpler and faster in some circumstances, you can use the `playSource` method to play audio from the given source and forget about the sound handle and its lifecycle. It will automatically dispose the source when it is finished playing:
 
 ```dart
-SoLoud.instance.playSource(assets: 'assets/your-audio-file.mp3'); // accepts files and urls also
+SoLoud.instance.playSource(asset: 'assets/your-audio-file.mp3'); // accepts file and url also
 ```
 
 ## Sample-accurate scheduling with `playClocked`
@@ -52,6 +56,12 @@ SoundHandle playClocked(
   int busId = 0,
   double volume = 1,
   double pan = 0,
+  double scale = 1,
+  bool looping = false,
+  Duration loopingStartAt = Duration.zero,
+  Duration? loopingEndAt,
+  int? loopingStartOffsetAt,
+  int? loopingEndOffsetAt,
 });
 ```
 
@@ -70,7 +80,15 @@ Timer.periodic(const Duration(milliseconds: 100), (_) {
 The 3D variant works the same way, with position and velocity instead of pan:
 
 ```dart
-SoLoud.instance.play3dClocked(sound, physicsTime, posX, posY, posZ);
+SoLoud.instance.play3dClocked(
+  sound,
+  physicsTime,
+  posX, posY, posZ,
+  velX: 0, velY: 0, velZ: 0,
+  volume: 1.0,
+  scale: 1.0,
+  looping: false,
+);
 ```
 
 And both are available on mixing buses as `bus.playClocked(...)` and `bus.play3dClocked(...)`.
@@ -80,7 +98,7 @@ And both are available on mixing buses as `bus.playClocked(...)` and `bus.play3d
 - The first clocked play after `init()` anchors your clock to the audio clock and plays about **two output buffers later**. This built-in lead guarantees there is always at least one buffer of slack to absorb the jitter of your timer/clock calls.
 - Times must be **monotonically increasing**. If the engine sees the clock going backwards (e.g. a new session with its own time base) or a jump of more than ~2 seconds, it re-anchors to the new time.
 - A call whose scheduled time is already in the past plays **as soon as possible** instead — the engine can delay sounds, not advance them. So call slightly *ahead* of the intended moment.
-- There is no `paused` or `looping` support; use `setPause()` or `setLooping()` for those.
+- All `play*` parameters (including `scale`, `looping`, `loopingStartAt`, `loopingEndAt`, `loopingStartOffsetAt`, `loopingEndOffsetAt`) are fully supported.
 - All clocked calls share a single anchor per engine, so they should all use the same time base.
 
 **Related low-level methods:**
@@ -137,6 +155,12 @@ SoundHandle playScheduled(
   int busId = 0,
   double volume = 1,
   double pan = 0,
+  double scale = 1,
+  bool looping = false,
+  Duration loopingStartAt = Duration.zero,
+  Duration? loopingEndAt,
+  int? loopingStartOffsetAt,
+  int? loopingEndOffsetAt,
 });
 
 // Stop or fade a sound at an absolute engine time. Both are
@@ -209,13 +233,26 @@ final position = SoLoud.instance.getPosition(handle);
 Enable looping during playback:
 
 ```dart
-final handle = await SoLoud.instance.play(
+// Duration-based looping:
+final handle = SoLoud.instance.play(
   sound,
   looping: true,
-  loopingStartAt: Duration(seconds: 1), // optional
-  loopingEndAt: Duration(seconds: 5),   // optional
+  loopingStartAt: const Duration(seconds: 1), // start of loop region
+  loopingEndAt: const Duration(seconds: 5),   // optional exclusive end point
+);
+
+// Or frame-offset-based looping (mutually exclusive with Duration-based):
+final handle2 = SoLoud.instance.play(
+  sound,
+  looping: true,
+  loopingStartOffsetAt: 44100, // sample frame offset
+  loopingEndOffsetAt: 220500,  // sample frame offset
 );
 ```
+
+<Info>
+All `play*` methods (`play`, `play3d`, `playClocked`, `play3dClocked`, `playScheduled`, and their mixing bus variants) accept `looping`, `loopingStartAt`, `loopingEndAt`, `loopingStartOffsetAt`, and `loopingEndOffsetAt` parameters.
+</Info>
 
 Control looping for an already playing sound:
 
@@ -223,7 +260,7 @@ Control looping for an already playing sound:
 // Enable/disable looping
 SoLoud.instance.setLooping(handle, true);
 
-// Set loop point
+// Set loop point (start of the loop)
 SoLoud.instance.setLoopPoint(handle, Duration(seconds: 1));
 
 // Check if looping
@@ -238,7 +275,21 @@ SoLoud.instance.setLoopEndPoint(handle, time);
 
 ## Playback Speed
 
-Adjust the playback speed of a sound:
+Set initial playback speed directly when starting playback:
+
+```dart
+// Set initial speed multiplier with [scale] (1.0 is normal speed)
+final handle = SoLoud.instance.play(
+  sound,
+  scale: 1.5, // Play 1.5x faster
+);
+```
+
+<Info>
+The `scale` parameter is available on all `play*` methods (`play`, `play3d`, `playClocked`, `play3dClocked`, `playScheduled`, and `Bus.play*`).
+</Info>
+
+Adjust the playback speed of an already playing sound:
 
 ```dart
 // Set relative play speed (1.0 is normal speed)
@@ -246,6 +297,43 @@ SoLoud.instance.setRelativePlaySpeed(handle, 2.0); // Play twice as fast
 
 // Get current play speed
 final speed = SoLoud.instance.getRelativePlaySpeed(handle);
+```
+
+## Render-Ahead Ring (Native Only)
+
+The experimental **render-ahead ring** decouples the device buffer period from the engine's internal mixing quantum.
+
+### How It Works
+
+When `renderAheadFrames > 0` is passed to `SoLoud.instance.init()`, the engine mixes into an engine-owned ring buffer ahead of the output device:
+
+- **Ultra-low latency**: Reactive calls like `play()` and `playScheduled()` are mixed retroactively into the not-yet-played portion of the ring buffer. As a result, keypress-to-sound latency approaches the small device period (e.g. 512 frames / ~11 ms) even when running with a large mix `bufferSize` (e.g. 2048 or 4096 frames).
+- **Graceful degradation**: Sources that cannot be re-read (such as released buffer streams, live pull streams, or speech) and voices using non-snapshot-able filters degrade gracefully to standard buffer-boundary behavior.
+- **Ended-voice timing**: Ended-voice callbacks may fire up to `renderAheadFrames` earlier than before when the ring is enabled.
+- **Web**: The render-ahead ring is native-only and ignored on the web.
+
+```dart
+// Initialize with render-ahead ring enabled:
+await SoLoud.instance.init(
+  bufferSize: 2048,
+  devicePeriodFrames: 512,  // Hardware device period
+  renderAheadFrames: 1536,  // Mix ahead depth (e.g. bufferSize - devicePeriodFrames)
+);
+```
+
+### Render-Ahead Inspection APIs
+
+```dart
+// Check if the ring buffer is enabled
+final isEnabled = SoLoud.instance.isRenderAheadEnabled;
+
+// Get the true playhead clock (engine time of the sample currently reaching the device)
+// Equals getEngineTime() when the render-ahead ring is disabled or on web.
+final playheadTime = SoLoud.instance.getPlayheadTime();
+
+// Estimated output latency (render-ahead ring depth plus one device period).
+// Returns Duration.zero when the ring is disabled or on web.
+final latency = SoLoud.instance.getOutputLatency();
 ```
 
 ## Voice Protection
@@ -276,3 +364,4 @@ final isValid = SoLoud.instance.getIsValidVoiceHandle(handle);
 - Dispose sounds when they're no longer needed
 - Use voice protection for important sounds like background music
 - Consider setting appropriate voice limits based on your app's needs
+
