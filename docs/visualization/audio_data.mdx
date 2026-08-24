@@ -43,9 +43,7 @@ Every time new audio data is processed by the mixer, an `AudioVisualizationData`
 - `channelCount`: The number of channels included in this data packet.
 - `wave`: `List<Float32List>` containing waveform samples per channel (normalized in range `[-1.0, 1.0]`, length equals `windowSize`).
 - `fft`: `List<Float32List>` containing FFT magnitude bins per channel (normalized in range `[0.0, 1.0]`, length equals `windowSize / 2`).
-- `wavePointers` / `fftPointers`: `List<Pointer<Float>>?` providing direct zero-copy access to the underlying native C++ memory buffers (FFI only, `null` on Web).
 - `waveData` / `fftData`: Convenience getters for single-channel / merged audio data (`wave.first` / `fft.first`).
-- `wavePointer` / `fftPointer`: Convenience getters for the first native pointer.
 
 ## Basic Example
 
