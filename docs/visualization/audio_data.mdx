@@ -1,208 +1,232 @@
 ---
 title: Audio Visualization
-description: Learn how to use audio data
+description: Learn how to stream real-time wave and FFT audio data
 ---
 
-*flutter_soloud* provides real-time audio visualization capabilities through the `AudioData` class. This allows you to access both FFT (Fast Fourier Transform) and wave data from the currently playing audio.
+*flutter_soloud* provides high-performance, real-time audio visualization powered by [PFFFT](https://github.com/martonparlagh/pffft) and miniaudio. It delivers audio waveforms and frequency spectra directly to Dart through a reactive `Stream<AudioVisualizationData>`.
 
-## Setup
+## Setup & Enabling Visualization
 
-Before using audio visualization, you need to enable it. For optimal visualization performance, it's recommended to set an appropriate buffer size during initialization:
+Visualization is enabled via `SoLoud.instance.setVisualizationEnabled(...)`.
 
 ```dart
-// Initialize with a smaller buffer size for better visualization performance
+// 1. Initialize the player engine
 await SoLoud.instance.init(
-  // Default is 2048, smaller values = lower latency, it could be set also to 512.
-  // The smaller the buffer, the more likely the
-  // system hits buffer underruns (ie, the play head marches on but there's no
-  // data ready to be played) and the sound breaks down horribly. 1024 is a good
-  // compromise.
   bufferSize: 1024,
+  channels: Channels.stereo,
 );
-SoLoud.instance.setVisualizationEnabled(true);
+
+// 2. Enable visualization (defaults to windowSize: 256, kind: waveAndFft, channel: merged)
+SoLoud.instance.setVisualizationEnabled(
+  true,
+  windowSize: 256,
+  kind: VisualizationKind.waveAndFft,
+  channel: VisualizationChannel.merged,
+);
 ```
 
-## AudioData Class
+### Configuration Options
 
-The `AudioData` class provides three different ways to acquire audio samples through the `GetSamplesKind` enum:
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `enabled` | `bool` | *(required)* | Enables or disables the analyzer engine and callback stream. |
+| `windowSize` | `int` | `256` | FFT and Wave window size. Must be a power of two from **128** to **8192** (128, 256, 512, 1024, 2048, 4096, 8192). |
+| `kind` | `VisualizationKind` | `VisualizationKind.waveAndFft` | What data to compute: `wave` only, `fft` only, or `waveAndFft`. |
+| `channel` | `int` | `VisualizationChannel.merged` | Channel selection: `VisualizationChannel.merged` (-1), `VisualizationChannel.all` (-2), or a specific 0-based channel index (`0`, `1`, ...). |
 
-1. `GetSamplesKind.wave` - Get 256 floats of wave audio data
-2. `GetSamplesKind.linear` - Get data linearly: first 256 floats are FFT values, next 256 are wave samples
-3. `GetSamplesKind.texture` - Get data in a 2D matrix of 256 linear rows
+## AudioVisualizationData
+
+Every time new audio data is processed by the mixer, an `AudioVisualizationData` packet is emitted on `SoLoud.instance.audioVisualizationEvents`.
+
+### Properties
+
+- `channelCount`: The number of channels included in this data packet.
+- `wave`: `List<Float32List>` containing waveform samples per channel (normalized in range `[-1.0, 1.0]`, length equals `windowSize`).
+- `fft`: `List<Float32List>` containing FFT magnitude bins per channel (normalized in range `[0.0, 1.0]`, length equals `windowSize / 2`).
+- `wavePointers` / `fftPointers`: `List<Pointer<Float>>?` providing direct zero-copy access to the underlying native C++ memory buffers (FFI only, `null` on Web).
+- `waveData` / `fftData`: Convenience getters for single-channel / merged audio data (`wave.first` / `fft.first`).
+- `wavePointer` / `fftPointer`: Convenience getters for the first native pointer.
 
 ## Basic Example
 
-Here's a minimal example of how to get audio data for visualization:
+Here is a complete widget listening to `audioVisualizationEvents` and rendering both waveform and frequency spectrum using a `CustomPainter`:
 
 ```dart
-class AudioVisualizer extends StatefulWidget {
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter_soloud/flutter_soloud.dart';
+
+class AudioVisualizerWidget extends StatefulWidget {
+  const AudioVisualizerWidget({super.key});
+
   @override
-  State<AudioVisualizer> createState() => _AudioVisualizerState();
+  State<AudioVisualizerWidget> createState() => _AudioVisualizerWidgetState();
 }
 
-class _AudioVisualizerState extends State<AudioVisualizer> with SingleTickerProviderStateMixin {
-  late final Ticker ticker;
-  late final AudioData audioData;
-  
+class _AudioVisualizerWidgetState extends State<AudioVisualizerWidget> {
+  StreamSubscription<AudioVisualizationData>? _subscription;
+  AudioVisualizationData? _latestData;
+
   @override
   void initState() {
     super.initState();
-    audioData = AudioData(GetSamplesKind.linear);
-    ticker = createTicker(_tick);
-    ticker.start();
+    _subscription = SoLoud.instance.audioVisualizationEvents.listen((data) {
+      if (mounted) {
+        setState(() {
+          _latestData = data;
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
-    ticker.stop();
-    audioData.dispose();
+    _subscription?.cancel();
     super.dispose();
-  }
-
-  void _tick(Duration elapsed) {
-    if (context.mounted) {
-      try {
-        audioData.updateSamples();
-        setState(() {});
-      } on Exception catch (e) {
-        debugPrint('$e');
-      }
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 100,
+      height: 200,
       child: CustomPaint(
-        painter: AudioVisualizerPainter(
-            samples: audioData.getAudioData(),
-        ),
-        child: Container(),
+        painter: SpectrumWavePainter(data: _latestData),
       ),
     );
   }
 }
-```
 
-## Basic FFT Visualization Example
+class SpectrumWavePainter extends CustomPainter {
+  const SpectrumWavePainter({required this.data});
 
-Here's a minimal implementation of an AudioVisualizerPainter that displays FFT data as vertical bars:
-
-```dart
-class AudioVisualizerPainter extends CustomPainter {
-  final Float32List samples;
-  final Paint barPaint;
-
-  AudioVisualizerPainter({
-    required this.samples,
-  }) : barPaint = Paint()..color = Colors.blue;
+  final AudioVisualizationData? data;
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (samples.isEmpty) return;
+    final vis = data;
+    if (vis == null) return;
 
-    // We're only interested in FFT data (first 256 values)
-    final fftData = samples.sublist(0, 256);
-    final barWidth = size.width / fftData.length;
-    
-    for (var i = 0; i < fftData.length; i++) {
-      // FFT data typically contains values between 0.0 and 1.0
-      final barHeight = fftData[i] * size.height;
-      
-      canvas.drawRect(
-        Rect.fromLTWH(
-          i * barWidth,           // Left position
-          size.height - barHeight, // Top position (from bottom)
-          barWidth,               // Width of each bar
-          barHeight,              // Height of each bar
-        ),
-        barPaint,
-      );
+    final wave = vis.waveData ?? Float32List(0);
+    final fft = vis.fftData ?? Float32List(0);
+
+    final count = wave.isNotEmpty ? wave.length : fft.length;
+    if (count == 0) return;
+
+    final barWidth = size.width / count;
+    final paint = Paint()
+      ..strokeWidth = barWidth * 0.8
+      ..color = Colors.cyanAccent;
+
+    for (var i = 0; i < count; i++) {
+      // Waveform (top half)
+      if (i < wave.length) {
+        final sample = wave[i];
+        final waveHeight = size.height * sample * 0.4;
+        canvas.drawRect(
+          Rect.fromLTWH(
+            i * barWidth,
+            (size.height * 0.25) - (waveHeight / 2),
+            barWidth * 0.8,
+            waveHeight.abs().clamp(1.0, size.height * 0.5),
+          ),
+          paint,
+        );
+      }
+
+      // FFT Spectrum (bottom half)
+      if (i < fft.length) {
+        final mag = fft[i];
+        final barHeight = mag * (size.height * 0.45);
+        canvas.drawRect(
+          Rect.fromLTWH(
+            i * barWidth,
+            size.height - barHeight,
+            barWidth * 0.8,
+            barHeight,
+          ),
+          paint,
+        );
+      }
     }
   }
 
   @override
-  bool shouldRepaint(covariant AudioVisualizerPainter oldDelegate) {
-    return true; // Always repaint when new data arrives
+  bool shouldRepaint(covariant SpectrumWavePainter oldDelegate) {
+    return oldDelegate.data != data;
   }
 }
 ```
 
-This creates a simple frequency spectrum analyzer where:
-- Each bar represents one frequency band from the FFT data
-- Bar height represents the amplitude of that frequency
-- Bars are drawn from left to right, with lower frequencies on the left
+## Channel Modes
 
-## Different Sample Kinds
-
-### Wave Data Only
+### 1. Merged Mono (Default)
+Downmixes all active mixer output channels into a single mono channel using `miniaudio`'s channel matrix converter.
 
 ```dart
-final audioData = AudioData(GetSamplesKind.wave);
-// Later in your code:
-audioData.updateSamples();
-final waveData = audioData.getAudioData(); // Returns 256 wave samples
+SoLoud.instance.setVisualizationEnabled(
+  true,
+  channel: VisualizationChannel.merged,
+);
 ```
 
-### Linear Data (FFT + Wave)
+### 2. Multi-Channel (All Channels)
+Provides independent waveform and FFT data for each speaker channel (e.g. Left and Right for stereo).
 
 ```dart
-final audioData = AudioData(GetSamplesKind.linear);
-// Later in your code:
-audioData.updateSamples();
-final samples = audioData.getAudioData();
-final fftData = samples.sublist(0, 256);    // FFT data
-final waveData = samples.sublist(256, 512); // Wave data
+SoLoud.instance.setVisualizationEnabled(
+  true,
+  channel: VisualizationChannel.all,
+);
+
+// Access in stream callback:
+SoLoud.instance.audioVisualizationEvents.listen((data) {
+  final leftWave = data.wave[0];
+  final rightWave = data.wave[1];
+  final leftFft = data.fft[0];
+  final rightFft = data.fft[1];
+});
 ```
 
-### 2D Texture Data
+### 3. Specific Single Channel
+Extracts data from a single 0-indexed channel (e.g. `0` for Left, `1` for Right):
 
 ```dart
-final audioData = AudioData(GetSamplesKind.texture);
-// Later in your code:
-audioData.updateSamples();
-final textureData = audioData.getAudioData(); // Returns 512x256 matrix
-
-// Each row in the matrix contains 512 values:
-// - First 256 values are FFT data
-// - Last 256 values are wave data
-// The matrix is updated on each call to updateSamples(),
-// where the newest data is added at the top and older rows
-// are shifted down
+SoLoud.instance.setVisualizationEnabled(
+  true,
+  channel: 0, // Left channel only
+);
 ```
-
-When using texture mode, every call to `updateSamples()` will:
-1. Shift all existing rows down one position
-2. Add the newest FFT and wave data as a new row at the top
-3. The oldest row at the bottom will be discarded
-
-This creates a history of audio data that can be used for waterfall-style visualizations or other time-based effects.
 
 ## FFT Smoothing
 
-To achieve smoother FFT visualization, you can use the `setFftSmoothing` method:
+To create smooth, aesthetically pleasing spectrum meters without erratic flickering, use `setFftSmoothing`:
 
 ```dart
-// Set smoothing factor (0.0 to 1.0)
-// 0.0 = no smoothing
-// 1.0 = maximum smoothing
-SoLoud.instance.setFftSmoothing(0.7);
+// Smooth value between 0.0 (no smoothing) and 1.0 (maximum smoothing)
+SoLoud.instance.setFftSmoothing(0.85);
 ```
 
-## Enhanced Visualization with audio_flux
+The smoothing filter interpolates declining frequency bands using an exponential decay model:
+$$\text{band}_{t} = \text{smooth} \times \text{band}_{t-1} + (1 - \text{smooth}) \times \text{band}_t$$
 
-For more advanced audio visualization features, consider using the [audio_flux](https://github.com/alnitak/audio_flux) package, which provides additional visualization capabilities using also shaders.
+## Window Sizes and Frequency Resolution
 
-<YouTube id="WrhSTIoQ_5c" />
+Window sizes must be powers of two between 128 and 8192:
 
-## Important Notes
+- **128**: 64 FFT bins. Ultra-low latency, coarse frequency resolution.
+- **256** *(default)*: 128 FFT bins. Optimal balance for UI animations and 60fps visuals.
+- **512**: 256 FFT bins. Great frequency detail for music visualizers.
+- **1024 / 2048**: 512 / 1024 FFT bins. High-resolution spectrum analysis.
+- **4096 / 8192**: Deep low-frequency resolution for studio tools.
 
-1. Always call `audioData.dispose()` when you no longer need the visualization to prevent memory leaks.
-2. The visualization feature must be enabled using `setVisualizationEnabled(true)`.
-3. Each call to `updateSamples()` updates the internal buffer with new audio data.
-4. Use `alwaysReturnData: false` with `getAudioData()` to avoid processing the same data multiple times:
+## Zero-Copy Memory Access (FFI)
+
+For performance-critical visualization in C/C++, Flutter shaders, or custom native renderers, `AudioVisualizationData` exposes direct C pointers without copying memory buffers:
+
 ```dart
-final samples = audioData.getAudioData(alwaysReturnData: false);
+final Pointer<Float>? wavePtr = data.wavePointer;
+final Pointer<Float>? fftPtr = data.fftPointer;
 ```
+
+On Flutter Web, `Float32List` views are mapped directly to the WebAssembly linear memory heap (`wasmHeapF32`).
