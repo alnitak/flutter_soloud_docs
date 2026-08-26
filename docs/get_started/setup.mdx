@@ -27,45 +27,20 @@ sudo pacman -S alsa-lib
 # OpenSUSE
 sudo zypper install alsa-devel
 ```
+### Native Build System
 
-If you are linking the [Xiph libraries](/get_started/no_xiph_libs) (the default), you can also choose to use the `TRY_SYSTEM_LIBS_FIRST=1` environment variable to link the ones available in the system:
+Native C/C++ engine sources are compiled automatically using [Dart build hooks](https://dart.dev/tools/hooks). No CMake, CocoaPods script phases, or custom compiler configuration is required on your part.
 
-```bash
-# Default - use bundled libraries
-flutter run
+To exclude bundled Opus/Ogg/Vorbis/FLAC libraries and reduce binary size, see [Without Xiph libs](/get_started/no_xiph_libs).
 
-# Prefer system libraries, fallback to bundled
-TRY_SYSTEM_LIBS_FIRST=1 flutter run
-```
+### iOS and macOS
 
-### Raspberry Pi Setup
+Native assets are compiled and bundled seamlessly whether your Flutter app uses CocoaPods or Swift Package Manager (SPM). No CMake installation is required.
 
-Since the precompiled Xiph libraries are provided only for x86_64, you need to install them manually on the system:
-
-```bash
-sudo apt install libflac-dev libogg-dev libopus-dev libvorbis-dev
-```
-
-and then set the `TRY_SYSTEM_LIBS_FIRST=1` environment variable to link them instead of the bundled ones:
-
-```bash
-TRY_SYSTEM_LIBS_FIRST=1 flutter run
-```
-
-If the Xiph libraries are not needed (for streaming purposes), you can also look here: [Without Xiph libs](/get_started/no_xiph_libs)
-
-
-### iOS and macOS Configuration
-
-⚠️ Using **Swift Package Manager** (SPM), packages cannot set Xcode build settings on the consuming app target. So when creating a release archive (IPA), you may need to modify symbol stripping to prevent errors:
-
+⚠️ When building release archives (IPA/app) with **Swift Package Manager** (SPM), if you encounter symbol stripping warnings, you can adjust:
 1. Open your project in Xcode
 2. Navigate to Target Runner > Build Settings > Strip Style
-3. Change from "All Symbols" to "Non-Global Symbols"
-
-### iOS and macOS build
-
-On macOS and iOS, the [Swift Package Manager](https://docs.flutter.dev/packages-and-plugins/swift-package-manager/for-app-developers) (SPM) can be used to build the plugin module. If SPM is not enabled, the build will be done using CocoaPods (using `cmake`). If the latter is used, please be sure you have `cmake` installed: `brew install cmake`.
+3. Set to "Non-Global Symbols"
 
 ## Basic Usage
 

@@ -6,33 +6,35 @@ showPageImage: true
 
 ## Contribute
 
-To use native code, bindings from Dart to C/C++ are needed. To avoid writing these manually, they are generated from the header file (`src/ffi_gen_tmp.h`) using [package:ffigen](https://pub.dev/packages/ffigen) and temporarily stored in `lib/flutter_soloud_FFIGEN.dart`. You can generate the bindings by running `dart run ffigen`.
+To use native code, bindings from Dart to C/C++ are generated from the header file `src/bindings.h` using [package:ffigen](https://pub.dev/packages/ffigen). `src/bindings.h` is the single source of truth for the native ABI.
 
-Since I needed to modify the generated `.dart` file, I followed this workflow:
-1. Copy the C function declarations to be generated into `src/ffi_gen_tmp.h`.
-2. Run `dart run ffigen --config ffigen.yaml` in teminal.
-3. The file `lib/flutter_soloud_FFIGEN.dart` will be generated.
-4. Copy the relevant code for the new functions from `lib/flutter_soloud_FFIGEN.dart` into `lib/flutter_soloud_bindings_ffi.dart`.
+To regenerate Dart bindings:
+1. Declare your new native C/C++ functions with `FFI_PLUGIN_EXPORT` in `src/bindings.h` and implement them in `src/bindings.cpp`.
+2. Run in terminal:
+   ```bash
+   dart run ffigen --config ffigen.yaml
+   ```
+   *(On macOS if system headers are missing: `CPATH="$(xcrun --show-sdk-path)/usr/include" dart run ffigen --config ffigen.yaml`)*
+3. The bindings will be automatically placed into `lib/src/bindings/flutter_soloud_ffigen.dart`.
+4. Wrap and expose the generated functions in `lib/src/bindings/bindings_player_ffi.dart` and `lib/src/soloud.dart`.
 
 #### Project structure
 
 This plugin uses the following structure:
 
-* `lib`: Contains the Dart code that defines the API of the plugin relative to all platforms.
-* `src`: Contains the native source code. Linux, Android and Windows have their own CmakeFile.txt file in their own subdir to build the code into a dynamic library.
-* `src/soloud`: Contains the SoLoud sources of my fork
-* `web`: Contains the scripts to build the plugin module on the web platform.
-* `xiph`: Contains the script to build `ogg`, `opus`, `vorbis`, and `flac` libraries for all the platforms.
-
-Each platform folders contains its own `CMakeLists.txt` file to build the code into a dynamic library. A common `CMakeLists.txt` file is stored in `src/`.
-
-On macOS and iOS, the [Swift Package Manager](https://docs.flutter.dev/packages-and-plugins/swift-package-manager/for-app-developers) (SPM) can be used to build the plugin module. If SPM is not enabled, the build will be done using CocoaPods (using `cmake`).
+* `lib`: Contains the Dart API code and bindings.
+* `src`: Contains the native C/C++ source code, filters, audio buffers, and SoLoud engine.
+* `src/bindings.h`: The single source of truth and ffigen entry point for the native C ABI.
+* `src/soloud`: Contains the SoLoud sources of the fork.
+* `hook`: Contains the [Dart build hooks](https://dart.dev/tools/hooks) (`hook/build.dart`, `hook/sources.dart`, `hook/xiph.dart`) that compile native code automatically for Android, iOS, macOS, Windows, and Linux into Code Assets.
+* `web`: Contains the scripts and assets for compiling and initializing the WebAssembly build on the Web platform.
+* `xiph`: Contains the prebuilt libraries and scripts for `ogg`, `opus`, `vorbis`, and `flac`.
 
 The `flutter_soloud` plugin utilizes a [forked](https://github.com/alnitak/soloud) repository of [SoLoud](https://github.com/jarikomppa/soloud), where the [miniaudio](https://github.com/mackron/miniaudio) audio backend is used by default.
 
 #### Debugging
 
-I have provided the necessary settings in the **.vscode** directory for debugging native C++ code on Linux, macOS, and Windows. To debug on Android, please use *Android Studio* and open the project located in the ***example/android*** directory. On iOS, please use XCode.
+I have provided the necessary settings in the **.vscode** directory for debugging native C++ code on Linux, macOS, and Windows. To debug on Android, please use *Android Studio* and open the project located in the ***example/android*** directory. On iOS, please use Xcode.
 
 ##### Logging
 
@@ -43,9 +45,11 @@ When debugging the package using the `example/` app, you might want to change th
 Logger.root.level = Level.ALL;
 ```
 
-#### Linux
-
-If you encounter any glitches, they might be caused by PulseAudio. To troubleshoot this issue, you can try disabling PulseAudio within the `linux/src.cmake` file. Look for the line `add_definitions(-DMA_NO_PULSEAUDIO)` and uncomment it (now it is the default behavior).
+#### Audio Backends
+- **Apple (macOS/iOS)**: Uses `miniaudio` with CoreAudio / AVFAudio.
+- **Linux**: Uses `miniaudio` with ALSA (`MA_NO_PULSEAUDIO` is enabled by default to prevent stutters).
+- **Windows**: Uses `miniaudio` with WASAPI.
+- **Android**: Uses `miniaudio`, which automatically selects AAudio on Android 11.0+ or OpenSL|ES on older versions.
 
 #### Android
 
