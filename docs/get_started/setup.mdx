@@ -42,6 +42,18 @@ Native assets are compiled and bundled seamlessly whether your Flutter app uses 
 2. Navigate to Target Runner > Build Settings > Strip Style
 3. Set to "Non-Global Symbols"
 
+### Windows & Linux Setup (Pre-Flutter 3.16 apps)
+
+If your Flutter application was created prior to Flutter 3.16, make sure your `windows/CMakeLists.txt` (and/or `linux/CMakeLists.txt`) contains the native assets installation step under the `=== Installation ===` section:
+
+```cmake
+# Copy the native assets provided by the build.dart from all packages.
+set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/windows/") # or /linux/
+install(DIRECTORY "${NATIVE_ASSETS_DIR}"
+   DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+   COMPONENT Runtime)
+```
+
 ## Basic Usage
 
 Initialize SoLoud in your app:
