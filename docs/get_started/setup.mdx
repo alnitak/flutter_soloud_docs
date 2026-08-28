@@ -54,6 +54,22 @@ install(DIRECTORY "${NATIVE_ASSETS_DIR}"
    COMPONENT Runtime)
 ```
 
+## AI Agent Skills
+
+`flutter_soloud` bundles **Agent Skills** that teach AI coding assistants (such as Claude, Cursor, Gemini, GitHub Copilot, Cline, Codex, OpenCode, etc.) how to properly use every feature of this plugin, including sample-accurate scheduling, mixing buses, 3D audio, filters, streaming, and mixer output capture.
+
+To install or update the skills in your project, run:
+
+```bash
+dart run flutter_soloud:skills
+```
+
+To check whether newer skill versions are available without writing any files:
+
+```bash
+dart run flutter_soloud:skills --check
+```
+
 ## Basic Usage
 
 Initialize SoLoud in your app:
@@ -85,4 +101,5 @@ void main() async {
 - Handle initialization errors appropriately
 - Configure buffer size and render-ahead based on your latency and app needs
 - Clean up resources when your app closes
+
 
