@@ -59,7 +59,7 @@ The default audio backend is `miniaudio`, which will automatically select the ap
 
 #### Web
 
-In the `web` directory, there is a `compile_wasm.sh` script that generates the `.js` and `.wasm` files for the native C code located in the `src` dir. Run it after installing *emscripten*. There is also a `compile_worker_and_init_module.sh` to compile the web worker needed by native code to communicate with Dart and the `init_module.dart` which initializes the WASM module. The default emscripten Module name is `Module_soloud` instead of the default `Module` to prevent some other WASM plugins from conflicting.
+In the `web` directory, there is a `compile_wasm.sh` script that generates the `.js` and `.wasm` files for the native C code located in the `src` dir. Run it after installing *emscripten*. There is also a `compile_worker_and_init_module.sh` to compile the web worker needed by native code to communicate with Dart and the `init_soloud.dart` which initializes the WASM module. The default emscripten Module name is `Module_soloud` instead of the default `Module` to prevent some other WASM plugins from conflicting.
 
 The generated files are already provided, but if it is needed to modify C/C++ code or the `web/worker.dart` code, the scripts must be run to reflect the changes.
 
