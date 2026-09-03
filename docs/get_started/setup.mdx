@@ -7,14 +7,11 @@ description: Learn how to set up flutter_soloud in your project
 
 ### Web Platform
 
-To use this plugin on the web platform, add the following scripts to your `web/index.html`:
-
+To add the plugin to a web app, add the following line to the `<body>` section of `web/index.html`:
 ```html
-<script src="assets/packages/flutter_soloud/web/libflutter_soloud_plugin.js" defer></script>
-<script src="assets/packages/flutter_soloud/web/init_module.dart.js" defer></script>
+<script src="assets/packages/flutter_soloud/web/init_soloud.js" defer></script>
 ```
-
-The web build uses a WebAssembly module that requires `SharedArrayBuffer`, which means it must be run with `--wasm` or served with cross-origin isolation headers. See the [Web Platform Guide](/get_started/web_notes) for details.
+This script automatically picks the best WASM build for the current page (see below). The old two-tag form that also loads `libflutter_soloud_plugin.js` explicitly is still supported, but no longer needed. See the [Web Platform Guide](/get_started/web_notes) for details.
 
 ### Linux Setup
 
@@ -30,45 +27,48 @@ sudo pacman -S alsa-lib
 # OpenSUSE
 sudo zypper install alsa-devel
 ```
+### Native Build System
 
-If you are linking the [Xiph libraries](/get_started/no_xiph_libs) (the default), you can also choose to use the `TRY_SYSTEM_LIBS_FIRST=1` environment variable to link the ones available in the system:
+Native C/C++ engine sources are compiled automatically using [Dart build hooks](https://dart.dev/tools/hooks). No CMake, CocoaPods script phases, or custom compiler configuration is required on your part.
 
-```bash
-# Default - use bundled libraries
-flutter run
+To exclude bundled Opus/Ogg/Vorbis/FLAC libraries and reduce binary size, see [Without Xiph libs](/get_started/no_xiph_libs).
 
-# Prefer system libraries, fallback to bundled
-TRY_SYSTEM_LIBS_FIRST=1 flutter run
-```
+### iOS and macOS
 
-### Raspberry Pi Setup
+Native assets are compiled and bundled seamlessly whether your Flutter app uses CocoaPods or Swift Package Manager (SPM). No CMake installation is required.
 
-Since the precompiled Xiph libraries are provided only for x86_64, you need to install them manually on the system:
-
-```bash
-sudo apt install libflac-dev libogg-dev libopus-dev libvorbis-dev
-```
-
-and then set the `TRY_SYSTEM_LIBS_FIRST=1` environment variable to link them instead of the bundled ones:
-
-```bash
-TRY_SYSTEM_LIBS_FIRST=1 flutter run
-```
-
-If the Xiph libraries are not needed (for streaming purposes), you can also look here: [Without Xiph libs](/get_started/no_xiph_libs)
-
-
-### iOS and macOS Configuration
-
-⚠️ Using **Swift Package Manager** (SPM), packages cannot set Xcode build settings on the consuming app target. So when creating a release archive (IPA), you may need to modify symbol stripping to prevent errors:
-
+⚠️ When building release archives (IPA/app) with **Swift Package Manager** (SPM), if you encounter symbol stripping warnings, you can adjust:
 1. Open your project in Xcode
 2. Navigate to Target Runner > Build Settings > Strip Style
-3. Change from "All Symbols" to "Non-Global Symbols"
+3. Set to "Non-Global Symbols"
 
-### iOS and macOS build
+### Windows & Linux Setup (Pre-Flutter 3.16 apps)
 
-On macOS and iOS, the [Swift Package Manager](https://docs.flutter.dev/packages-and-plugins/swift-package-manager/for-app-developers) (SPM) can be used to build the plugin module. If SPM is not enabled, the build will be done using CocoaPods (using `cmake`). If the latter is used, please be sure you have `cmake` installed: `brew install cmake`.
+If your Flutter application was created prior to Flutter 3.16, make sure your `windows/CMakeLists.txt` (and/or `linux/CMakeLists.txt`) contains the native assets installation step under the `=== Installation ===` section:
+
+```cmake
+# Copy the native assets provided by the build.dart from all packages.
+set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/windows/") # or /linux/
+install(DIRECTORY "${NATIVE_ASSETS_DIR}"
+   DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+   COMPONENT Runtime)
+```
+
+## AI Agent Skills
+
+`flutter_soloud` bundles **Agent Skills** that teach AI coding assistants (such as Claude, Cursor, Gemini, GitHub Copilot, Cline, Codex, OpenCode, etc.) how to properly use every feature of this plugin, including sample-accurate scheduling, mixing buses, 3D audio, filters, streaming, and mixer output capture.
+
+To install or update the skills in your project, run:
+
+```bash
+dart run flutter_soloud:skills
+```
+
+To check whether newer skill versions are available without writing any files:
+
+```bash
+dart run flutter_soloud:skills --check
+```
 
 ## Basic Usage
 
@@ -77,19 +77,29 @@ Initialize SoLoud in your app:
 ```dart
 void main() async {
   await SoLoud.instance.init(
-    sampleRate: 44100,      // Audio quality
-    bufferSize: 2048,       // Buffer size affects latency
-    channels: Channels.stereo,
+    sampleRate: 44100,          // Sample rate (default 44100)
+    bufferSize: 2048,           // Mix buffer size affects latency/stability
+    channels: Channels.stereo,  // Output channels
+    lowLatency: true,           // Native low latency mode
+    devicePeriodFrames: 512,    // Hardware device period (used with renderAheadFrames)
+    renderAheadFrames: 0,       // Render-ahead ring depth (native only, default 0/disabled)
   );
   
   runApp(const MyApp());
 }
 ```
-<Info>The `bufferSize` parameter affects audio latency, which generally means the time it takes from triggering a sound to the sound actually coming out of the speakers. The smaller the latency, the better, but could lead to choppy audio depending on the complexity of the audio processing. The default is 2048, but it can be adjusted to 1024 or 512.</Info>
+
+<Info>
+- **`bufferSize`**: The mixing buffer quantum. The smaller the buffer size, the lower the latency, but smaller buffers leave less CPU headroom for audio DSP/filters. Defaults to 2048.
+- **`renderAheadFrames` / `devicePeriodFrames`**: When `renderAheadFrames > 0` on native platforms, the engine enables the experimental render-ahead ring, which decouples the hardware device period from the mixing buffer size to deliver ultra-low reactive playback latency. See [Playback Controls](/audio/playback#render-ahead-ring-native-only).
+- **`lowLatency`**: Configures native low-latency output modes where available.
+</Info>
 
 ## Best Practices
 
 - Initialize SoLoud early in your app lifecycle
 - Handle initialization errors appropriately
-- Configure buffer size based on your latency and app needs
+- Configure buffer size and render-ahead based on your latency and app needs
 - Clean up resources when your app closes
+
+
