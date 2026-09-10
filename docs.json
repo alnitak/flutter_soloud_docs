@@ -19,6 +19,10 @@
           "href": "/get_started/setup"
         },
         {
+          "title": "📦 Xiph Libraries & Codecs",
+          "href": "/get_started/xiph_libs"
+        },
+        {
           "title": "🚫 Without Xiph libs",
           "href": "/get_started/no_xiph_libs"
         },

@@ -29,9 +29,9 @@ sudo zypper install alsa-devel
 ```
 ### Native Build System
 
-Native C/C++ engine sources are compiled automatically using [Dart build hooks](https://dart.dev/tools/hooks). No CMake, CocoaPods script phases, or custom compiler configuration is required on your part.
+Native C/C++ engine sources and Xiph audio codecs (Ogg, Vorbis, Opus, FLAC) are compiled automatically using [Dart build hooks](https://dart.dev/tools/hooks). By default, Xiph libraries are cloned and compiled from source automatically without manual setup.
 
-To exclude bundled Opus/Ogg/Vorbis/FLAC libraries and reduce binary size, see [Without Xiph libs](/get_started/no_xiph_libs).
+To use system-installed libraries (`apt`, `brew`, `vcpkg`, or Windows downloads) or build without Xiph to minimize binary size, see the [Xiph Libraries & Codecs Guide](/get_started/xiph_libs) and [Without Xiph libs](/get_started/no_xiph_libs).
 
 ### iOS and macOS
 
