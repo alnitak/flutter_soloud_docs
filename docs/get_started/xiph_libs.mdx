@@ -126,7 +126,7 @@ hooks:
       # or ios_force_build_libs: true
 ```
 
-<Note>
+<Info>
 **Build time impact:** Setting `<platform>_force_build_libs: true` significantly increases build times. The build hook will `git clone` all four Xiph repositories (`ogg`, `vorbis`, `opus`, `flac`) and compile them from source via CMake.
 
 Keep in mind that:
@@ -135,7 +135,7 @@ Keep in mind that:
 - Compilation artifacts are cached in `.dart_tool/`, meaning a full re-clone and re-compile will occur after every `flutter clean` or on clean CI/CD runs.
 
 For everyday development, leaving this option at its default (`false`) to use the bundled precompiled libraries is strongly recommended.
-</Note>
+</Info>
 
 ### Requirements
 - **Git** installed on your system PATH (`git --version`).
