@@ -44,40 +44,40 @@ By default, the Dart build hook automatically links and bundles precompiled libr
 
 On desktop platforms, you can instruct *flutter_soloud* to link against libraries installed in the operating system.
 
-> [!WARNING]
-> If you package an application with system libraries, the end user running your application **must** have those libraries installed on their machine. If missing, the app will fail to load the native library on startup (with an actionable error message indicating how to install them).
+<Warning>
+If you package an application with system libraries, the end user running your application **must** have those libraries installed on their machine. If missing, the app will fail to load the native library on startup (with an actionable error message indicating how to install them).
+</Warning>
 
 ### Step 1: Install System Packages
 
-<Tabs>
-  <Tab title="Ubuntu / Debian / Raspberry Pi OS">
-  ```bash
-  sudo apt update
-  sudo apt install libogg-dev libvorbis-dev libopus-dev libflac-dev pkg-config
-  ```
-  </Tab>
-  <Tab title="Arch Linux / Manjaro">
-  ```bash
-  sudo pacman -S libogg libvorbis opus flac pkgconf
-  ```
-  </Tab>
-  <Tab title="Fedora / RHEL">
-  ```bash
-  sudo dnf install libogg-devel libvorbis-devel opus-devel flac-devel pkgconf-pkg-config
-  ```
-  </Tab>
-  <Tab title="macOS (Homebrew)">
-  ```bash
-  brew install libogg libvorbis opus flac pkg-config
-  ```
-  </Tab>
-  <Tab title="Windows (vcpkg)">
-  ```powershell
-  vcpkg install libogg:x64-windows libvorbis:x64-windows opus:x64-windows flac:x64-windows
-  ```
-  Set the `VCPKG_ROOT` environment variable if not already set (e.g., `C:\vcpkg`).
-  </Tab>
-</Tabs>
+Install the Xiph development packages using your platform's package manager:
+
+#### Ubuntu / Debian / Raspberry Pi OS
+```bash
+sudo apt update
+sudo apt install libogg-dev libvorbis-dev libopus-dev libflac-dev pkg-config
+```
+
+#### Arch Linux / Manjaro
+```bash
+sudo pacman -S libogg libvorbis opus flac pkgconf
+```
+
+#### Fedora / RHEL
+```bash
+sudo dnf install libogg-devel libvorbis-devel opus-devel flac-devel pkgconf-pkg-config
+```
+
+#### macOS (Homebrew)
+```bash
+brew install libogg libvorbis opus flac pkg-config
+```
+
+#### Windows (vcpkg)
+```powershell
+vcpkg install libogg:x64-windows libvorbis:x64-windows opus:x64-windows flac:x64-windows
+```
+Set the `VCPKG_ROOT` environment variable if not already set (e.g., `C:\vcpkg`).
 
 ### Downloading Prebuilt Binaries for Windows
 
