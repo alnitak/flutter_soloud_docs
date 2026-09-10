@@ -1,51 +1,51 @@
 ---
 title: Xiph Libraries & Codecs
-description: Build options, system package installation, Windows downloads, and configuration for Ogg, Vorbis, Opus, and FLAC codecs in flutter_soloud
+description: Build options, bundled prebuilts, system package installation, Windows downloads, and platform-specific configuration for Ogg, Vorbis, Opus, and FLAC codecs in flutter_soloud
 ---
 
 ## Overview
 
 *flutter_soloud* supports audio streaming and real-time playback for compressed audio formats including **Ogg**, **Vorbis**, **Opus**, and **FLAC** via libraries from [Xiph.org](https://www.xiph.org/).
 
-Starting in version 5.1+, *flutter_soloud* uses **Dart Native Assets build hooks** to provide flexible options for handling Xiph libraries:
+Starting in version 5.1+, *flutter_soloud* uses **Dart Native Assets build hooks** to provide flexible options for handling Xiph libraries across all platforms:
 
 ```mermaid
 flowchart TD
     A["hook/build.dart"] --> B{"no_xiph_libs: true?"}
     B -- Yes --> C["Mode 1: Without Xiph libs<br/>(Reduced binary size, no Ogg/Opus/FLAC)"]
-    B -- No --> D{"use_system_xiph_libs: false?"}
-    D -- Yes --> F["Mode 3: Build from Source<br/>(Git clone + CMake compilation)"]
-    D -- No --> E{"System libs detected?"}
-    E -- Yes --> G["Mode 2 (Default): System Libraries<br/>(Links system apt, brew, pacman, vcpkg)"]
-    E -- No --> F
+    B -- No --> D{"<platform>_use_system_libs: true?"}
+    D -- Yes --> E["Mode 2: System Libraries<br/>(Links system apt, brew, pacman, vcpkg)"]
+    D -- No --> F{"<platform>_force_build_libs: true?"}
+    F -- Yes --> G["Mode 3: Build from Source<br/>(Git clone + CMake build into .dart_tool)"]
+    F -- No --> H["Default: Bundled Prebuilt Libraries<br/>(Packaged inside AAB/APK, IPA, APP, EXE)"]
 ```
 
-1. **Default Mode (Auto-Detect System Libraries)**: Automatically detects system-installed Xiph libraries (via `pkg-config` or standard OS paths). If found, it links against them for fastest build times. If not found (or on mobile platforms), it automatically falls back to cloning and compiling them from source.
-2. **Force Source Build (`use_system_xiph_libs: false`)**: Forces compiling Xiph libraries from source via Git and CMake, bypassing system library detection entirely.
-3. **Without Xiph Mode (`no_xiph_libs: true`)**: Skips Xiph libraries entirely to reduce application binary size when streaming/Ogg formats are not required.
+1. **Default Mode (Bundled Prebuilt Libraries)**: No configuration is required. *flutter_soloud* automatically links and packages tested, precompiled Xiph binaries from `xiph/prebuild/<platform>/`. This guarantees that packaged apps (Android AAB/APK, iOS IPA, macOS .app, Windows .exe) run out of the box with zero external dependencies and zero setup.
+2. **System Libraries Mode (`<platform>_use_system_libs: true`)**: Links against system-installed packages (apt, pacman, dnf, Homebrew, vcpkg). Ideal for Linux distribution packages (`.deb`, `.rpm`, Arch AUR).
+3. **Build from Source Mode (`<platform>_force_build_libs: true`)**: Clones the pinned Xiph Git repositories (`ogg`, `vorbis`, `opus`, `flac`) and builds them locally using CMake into `.dart_tool/flutter_soloud/xiph/install/<os>/<arch>`.
+4. **Without Xiph Mode (`no_xiph_libs: true`)**: Skips Xiph libraries entirely across all platforms to reduce application binary size.
 
 ---
 
-## 1. Default Mode: Automatic Detection
+## 1. Default Mode: Bundled Prebuilt Libraries
 
-No configuration is required in your `pubspec.yaml`!
+**No configuration is needed in your `pubspec.yaml`!**
 
-When you build your Flutter application (`flutter run`, `flutter build`, `flutter test`), Dart's native build hook will automatically:
-1. **Check for system packages**: Uses `pkg-config` and standard system paths to see if `ogg`, `vorbis`, `opus`, and `flac` are already installed on your system. If present, it links against them immediately.
-2. **Fallback to source compilation**: If system libraries are not found (or when targeting mobile platforms like Android or iOS), it automatically clones the Xiph Git repositories (`ogg`, `vorbis`, `opus`, `flac`) pinned to known-good commits into `.dart_tool/flutter_soloud/xiph/sources/`, builds them with CMake into `.dart_tool/flutter_soloud/xiph/install/<os>/<arch>`, and caches them for future runs.
-
-### Requirements
-- **Git** installed on your system PATH (`git --version`).
-- **CMake** installed on your system PATH (`cmake --version`).
-- A C/C++ compiler (e.g. `gcc`/`clang` on Linux, Xcode on macOS, MSVC on Windows).
-
-If you do not have Git or CMake, or prefer not to build from source, use either the **System Libraries** or **Without Xiph** options below.
+By default, the Dart build hook automatically links and bundles precompiled libraries from `xiph/prebuild/`:
+- **Android**: Bundles prebuilt shared `.so` files for all 4 architectures (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`) into your APK or AAB bundle under `lib/<abi>/`.
+- **iOS**: Links static `.a` archives directly into the plugin binary for both device and simulator.
+- **macOS**: Links static `.a` archives directly into `libflutter_soloud.dylib`. This ensures the `.app` or `.dmg` is self-contained and never crashes on user machines that lack Homebrew.
+- **Windows**: Bundles precompiled `.dll` files next to the compiled executable.
+- **Linux**: Bundles precompiled `.so` files alongside the application.
 
 ---
 
-## 2. Using System-Installed Libraries (`use_system_xiph_libs`)
+## 2. Using System-Installed Libraries (`<platform>_use_system_libs`)
 
-If you prefer to use system-wide native libraries (or want to speed up clean builds), you can install them using your operating system's package manager and tell *flutter_soloud* to link against them.
+On desktop platforms, you can instruct *flutter_soloud* to link against libraries installed in the operating system.
+
+> [!WARNING]
+> If you package an application with system libraries, the end user running your application **must** have those libraries installed on their machine. If missing, the app will fail to load the native library on startup (with an actionable error message indicating how to install them).
 
 ### Step 1: Install System Packages
 
@@ -81,54 +81,58 @@ If you prefer to use system-wide native libraries (or want to speed up clean bui
 
 ### Downloading Prebuilt Binaries for Windows
 
-If you are on Windows and prefer to download prebuilt binaries manually rather than compiling from source or installing via `vcpkg`:
+If you are on Windows and prefer to download prebuilt binaries manually:
 
 1. **Download the Binaries**:
-   - **FLAC**: [FLAC Download Page](https://xiph.org/flac/download.html) and [FLAC Official GitHub Releases](https://github.com/xiph/flac/releases) (grab the `flac-*-win.zip` release package)
+   - **FLAC**: [FLAC Download Page](https://xiph.org/flac/download.html) and [FLAC Official GitHub Releases](https://github.com/xiph/flac/releases)
    - **Ogg**: [Xiph Ogg Downloads](https://xiph.org/downloads/) and [Ogg Official GitHub Releases](https://github.com/xiph/ogg/releases)
    - **Vorbis**: [Xiph Vorbis Downloads](https://xiph.org/downloads/) and [Vorbis Official GitHub Releases](https://github.com/xiph/vorbis/releases)
    - **Opus**: [Opus Codec Downloads](https://opus-codec.org/downloads/) and [Opus Official GitHub Releases](https://github.com/xiph/opus/releases)
-   - **Repository Prebuilt Binaries**: You can also download the precompiled `.dll` and `.lib` files bundled in the [flutter_soloud GitHub repository](https://github.com/alnitak/flutter_soloud/tree/main/windows/libs).
+   - **Repository Prebuilt Binaries**: You can also download the precompiled files directly from [flutter_soloud's xiph/prebuild/windows](https://github.com/alnitak/flutter_soloud/tree/main/xiph/prebuild/windows).
 
 2. **Where to Place the Files**:
-   When `use_system_xiph_libs: true` is configured on Windows, the build hook searches the following locations for `.lib` files and header includes:
+   When `windows_use_system_libs: true` is configured, the build hook searches:
    - `%VCPKG_ROOT%\installed\<arch>-windows\lib`
    - `C:\vcpkg\installed\<arch>-windows\lib`
-   - `C:\tools\vcpkg\installed\<arch>-windows\lib`
    - `C:\Program Files\Xiph\lib` and `C:\Program Files\Xiph\include`
    - `C:\Xiph\lib` and `C:\Xiph\include`
-   - Custom paths defined in your environment's `LIB` and `INCLUDE` variables
-
-   Place the `.lib` files (e.g. `ogg.lib`, `opus.lib`, `vorbis.lib`, `FLAC.lib`) in one of the `lib` paths above, and header folders (`ogg/`, `opus/`, `vorbis/`, `FLAC/`) in the corresponding `include` directory.
-   Ensure the matching `.dll` files are in your system `PATH` or next to your compiled application executable.
 
 ### Step 2: Enable in `pubspec.yaml`
 
-Add `use_system_xiph_libs: true` under `hooks.user_defines.flutter_soloud` in your root app's `pubspec.yaml`:
+Add the platform-specific flag under `hooks.user_defines.flutter_soloud` in your app's `pubspec.yaml`:
 
 ```yaml
 hooks:
   user_defines:
     flutter_soloud:
-      use_system_xiph_libs: true
+      linux_use_system_libs: true
+      # or macos_use_system_libs: true
+      # or windows_use_system_libs: true
 ```
-
-The build hook will use `pkg-config` (and standard platform include/library paths) to link against the installed system libraries.
 
 ---
 
-## 3. Forcing Source Compilation (`use_system_xiph_libs: false`)
+## 3. Forcing Source Compilation (`<platform>_force_build_libs`)
 
-If you want to ensure Xiph libraries are always built from source using the pinned git repositories (bypassing any system-installed libraries), set `use_system_xiph_libs: false`:
+If you want to compile the Xiph libraries from the official pinned Git repositories using CMake on your own machine:
 
 ```yaml
 hooks:
   user_defines:
     flutter_soloud:
-      use_system_xiph_libs: false
+      linux_force_build_libs: true
+      # or macos_force_build_libs: true
+      # or windows_force_build_libs: true
+      # or android_force_build_libs: true
+      # or ios_force_build_libs: true
 ```
 
-When active, *flutter_soloud* skips system library detection and compiles the exact pinned versions of `ogg`, `vorbis`, `opus`, and `flac` into `.dart_tool/flutter_soloud/xiph/install/`.
+### Requirements
+- **Git** installed on your system PATH (`git --version`).
+- **CMake** installed on your system PATH (`cmake --version`).
+- A C/C++ compiler (GCC/Clang on Linux, Xcode on macOS/iOS, MSVC on Windows, Android NDK for Android).
+
+Artifacts are compiled into `.dart_tool/flutter_soloud/xiph/install/<os>/<arch>` and cached for future builds.
 
 ---
 
@@ -147,8 +151,8 @@ hooks:
 
 When built without Xiph:
 - The compiler defines `NO_XIPH_LIBS`.
-- No Xiph libraries are downloaded, compiled, or linked.
-- Audio streaming with Opus/Vorbis/FLAC formats is disabled (an exception is thrown if attempted).
+- No Xiph libraries are linked or bundled.
+- Compressed audio streaming with Opus/Vorbis/FLAC formats is disabled (`SoLoudXiphLibsNotAvailableException` is thrown if attempted).
 - All standard WAV, MP3, and synthesis features remain 100% operational.
 
 See [Without Xiph libs](/get_started/no_xiph_libs) for full details.
