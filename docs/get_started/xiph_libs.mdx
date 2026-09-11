@@ -33,10 +33,10 @@ flowchart TD
 
 By default, the Dart build hook automatically links and bundles precompiled libraries from `xiph/prebuild/`:
 - **Android**: Bundles prebuilt shared `.so` files for all 4 architectures (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`) into your APK or AAB bundle under `lib/<abi>/`.
-- **iOS**: Links static `.a` archives directly into the plugin binary for both device and simulator.
-- **macOS**: Links static `.a` archives directly into `libflutter_soloud.dylib`. This ensures the `.app` or `.dmg` is self-contained and never crashes on user machines that lack Homebrew.
-- **Windows**: Bundles precompiled `.dll` files next to the compiled executable.
-- **Linux**: Bundles precompiled `.so` files alongside the application.
+- **iOS**: Links universal static `.a` archives covering physical devices (`arm64`) and simulators (`arm64`, `x86_64`) directly into the plugin binary.
+- **macOS**: Links universal static `.a` archives supporting both Apple Silicon (`arm64`) and Intel (`x86_64`) directly into `libflutter_soloud.dylib`. This ensures the `.app` or `.dmg` is self-contained and never crashes on user machines that lack Homebrew.
+- **Windows**: Bundles precompiled 64-bit (`x86_64`) `.dll` files next to the compiled executable. *(For Windows ARM64, use `windows_use_system_libs: true` or `windows_force_build_libs: true`)*.
+- **Linux**: Bundles precompiled 64-bit (`x86_64`) `.so` files alongside the application. *(For ARM Linux / Raspberry Pi, use `linux_use_system_libs: true` or `linux_force_build_libs: true`)*.
 
 ---
 
@@ -75,7 +75,11 @@ brew install libogg libvorbis opus flac pkg-config
 
 #### Windows (vcpkg)
 ```powershell
+# For x64
 vcpkg install libogg:x64-windows libvorbis:x64-windows opus:x64-windows flac:x64-windows
+
+# For ARM64
+vcpkg install libogg:arm64-windows libvorbis:arm64-windows opus:arm64-windows flac:arm64-windows
 ```
 Set the `VCPKG_ROOT` environment variable if not already set (e.g., `C:\vcpkg`).
 
