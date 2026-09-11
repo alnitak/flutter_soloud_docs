@@ -136,7 +136,7 @@ hooks:
 Keep in mind that:
 - **Android** compiles across 4 architectures (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`).
 - **Apple (iOS / macOS)** compiles for both device and simulator architectures.
-- Compilation artifacts are cached in `.dart_tool/`, meaning a full re-clone and re-compile will occur after every `flutter clean` or on clean CI/CD runs.
+- Compilation artifacts are cached in `flutter_soloud`'s `.dart_tool/` directory, meaning they persist even after running `flutter clean` in your application (a re-clone and re-compile only occurs if the plugin's `.dart_tool/` is removed or on fresh CI/CD environments without cache).
 
 For everyday development, leaving this option at its default (`false`) to use the bundled precompiled libraries is strongly recommended.
 </Warning>
