@@ -22,7 +22,7 @@ flowchart TD
 
 1. **Default Mode (Bundled Prebuilt Libraries)**: No configuration is required. *flutter_soloud* automatically links and packages tested, precompiled Xiph binaries from `xiph/prebuild/<platform>/`. This guarantees that packaged apps (Android AAB/APK, iOS IPA, macOS .app, Windows .exe) run out of the box with zero external dependencies and zero setup.
 2. **System Libraries Mode (`<platform>_use_system_libs: true`)**: Links against system-installed packages (apt, pacman, dnf, Homebrew, vcpkg). Ideal for Linux distribution packages (`.deb`, `.rpm`, Arch AUR).
-3. **Build from Source Mode (`<platform>_force_build_libs: true`)**: Clones the pinned Xiph Git repositories (`ogg`, `vorbis`, `opus`, `flac`) and builds them locally using CMake into `.dart_tool/flutter_soloud/xiph/install/<os>/<arch>`.
+3. **Build from Source Mode (`<platform>_force_build_libs: true`)**: Clones the pinned Xiph Git repositories (`ogg`, `vorbis`, `opus`, `flac`) and builds them locally using CMake into `.dart_tool/flutter_soloud/xiph/install/<os>/<arch>` (or `install/ios/<simulator|device>/<arch>` on iOS).
 4. **Without Xiph Mode (`no_xiph_libs: true`)**: Skips Xiph libraries entirely across all platforms to reduce application binary size.
 
 ---
@@ -146,7 +146,7 @@ For everyday development, leaving this option at its default (`false`) to use th
 - **CMake** installed on your system PATH (`cmake --version`).
 - A C/C++ compiler (GCC/Clang on Linux, Xcode on macOS/iOS, MSVC on Windows, Android NDK for Android).
 
-Artifacts are compiled into `.dart_tool/flutter_soloud/xiph/install/<os>/<arch>` and cached for future builds.
+Artifacts are compiled into `.dart_tool/flutter_soloud/xiph/install/<os>/<arch>` (or `install/ios/<simulator|device>/<arch>` on iOS) and cached for future builds.
 
 ---
 
