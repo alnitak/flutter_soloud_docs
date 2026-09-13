@@ -1,6 +1,6 @@
 ---
 title: Xiph Libraries & Codecs
-description: Build options, bundled prebuilts, system package installation, Windows downloads, and platform-specific configuration for Ogg, Vorbis, Opus, and FLAC codecs in flutter_soloud
+description: Build options, remote prebuilts, system package installation, Windows downloads, and platform-specific configuration for Ogg, Vorbis, Opus, and FLAC codecs in flutter_soloud
 ---
 
 ## Overview
@@ -17,26 +17,49 @@ flowchart TD
     D -- Yes --> E["Mode 2: System Libraries<br/>(Links system apt, brew, pacman, vcpkg)"]
     D -- No --> F{"<platform>_force_build_libs: true?"}
     F -- Yes --> G["Mode 3: Build from Source<br/>(Git clone + CMake build into .dart_tool)"]
-    F -- No --> H["Default: Bundled Prebuilt Libraries<br/>(Packaged inside AAB/APK, IPA, APP, EXE)"]
+    F -- No --> H["Default: Remote Prebuilt Libraries<br/>(Downloaded on-demand from GitHub releases)"]
 ```
 
-1. **Default Mode (Bundled Prebuilt Libraries)**: No configuration is required. *flutter_soloud* automatically links and packages tested, precompiled Xiph binaries from `xiph/prebuild/<platform>/`. This guarantees that packaged apps (Android AAB/APK, iOS IPA, macOS .app, Windows .exe) run out of the box with zero external dependencies and zero setup.
-2. **System Libraries Mode (`<platform>_use_system_libs: true`)**: Links against system-installed packages (apt, pacman, dnf, Homebrew, vcpkg). Ideal for Linux distribution packages (`.deb`, `.rpm`, Arch AUR).
+1. **Default Mode (Remote Prebuilt Libraries)**: No configuration is required. Tested, precompiled static and shared Xiph libraries are hosted in the companion repository [flutter_soloud_prebuilds](https://github.com/alnitak/flutter_soloud_prebuilds). On the first build, Dart's Native Assets build hook automatically downloads and caches the matching archive for your target platform and architecture into `.dart_tool/flutter_soloud/xiph/prebuild/`. This keeps the pub package lightweight while ensuring apps run out of the box with zero setup.
+2. **System Libraries Mode (`<platform>_use_system_libs: true`)**: Links against system-installed packages (apt, pacman, dnf, Homebrew, vcpkg). Ideal for Linux distribution packages (`.deb`, `.rpm`, Arch AUR) and custom desktop environments.
 3. **Build from Source Mode (`<platform>_force_build_libs: true`)**: Clones the pinned Xiph Git repositories (`ogg`, `vorbis`, `opus`, `flac`) and builds them locally using CMake into `.dart_tool/flutter_soloud/xiph/install/<os>/<arch>` (or `install/ios/<simulator|device>/<arch>` on iOS).
 4. **Without Xiph Mode (`no_xiph_libs: true`)**: Skips Xiph libraries entirely across all platforms to reduce application binary size.
 
 ---
 
-## 1. Default Mode: Bundled Prebuilt Libraries
+## 1. Default Mode: Remote Prebuilt Libraries
 
 **No configuration is needed in your `pubspec.yaml`!**
 
-By default, the Dart build hook automatically links and bundles precompiled libraries from `xiph/prebuild/`:
-- **Android**: Bundles prebuilt shared `.so` files for all 4 architectures (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`) into your APK or AAB bundle under `lib/<abi>/`.
-- **iOS**: Links universal static `.a` archives covering physical devices (`arm64`) and simulators (`arm64`, `x86_64`) directly into the plugin binary.
-- **macOS**: Links universal static `.a` archives supporting both Apple Silicon (`arm64`) and Intel (`x86_64`) directly into `libflutter_soloud.dylib`. This ensures the `.app` or `.dmg` is self-contained and never crashes on user machines that lack Homebrew.
-- **Windows**: Bundles precompiled 64-bit (`x86_64`) `.dll` files next to the compiled executable. *(For Windows ARM64, use `windows_use_system_libs: true` or `windows_force_build_libs: true`)*.
-- **Linux**: Bundles precompiled 64-bit (`x86_64`) `.so` files alongside the application. *(For ARM Linux / Raspberry Pi, use `linux_use_system_libs: true` or `linux_force_build_libs: true`)*.
+To keep the `flutter_soloud` package footprint small on [pub.dev](https://pub.dev/packages/flutter_soloud), precompiled binaries and C headers are hosted and maintained in the dedicated companion repository:
+
+👉 **[alnitak/flutter_soloud_prebuilds](https://github.com/alnitak/flutter_soloud_prebuilds)**
+
+### About `flutter_soloud_prebuilds`
+The [flutter_soloud_prebuilds](https://github.com/alnitak/flutter_soloud_prebuilds) repository provides automated, reproducible CMake build scripts and multi-platform GitHub Actions workflows. Each release provides pre-compiled, optimized, and stripped libraries for all Flutter-supported targets:
+- **Android**: Prebuilt shared `.so` libraries for all 4 ABIs (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`).
+- **iOS**: Universal static `.a` archives covering physical devices (`arm64`) and simulators (`arm64`, `x86_64`).
+- **macOS**: Universal static `.a` archives supporting both Apple Silicon (`arm64`) and Intel (`x86_64`).
+- **Windows**: Precompiled 64-bit (`x64`) and 64-bit ARM (`arm64`) `.zip` packages with DLLs and import libraries.
+- **Linux**: Precompiled 64-bit (`x86_64`) and 64-bit ARM (`aarch64`) `.so` shared libraries.
+- **Include Headers**: Canonical Xiph C headers (`ogg/`, `vorbis/`, `opus/`, `FLAC/`) including generated configuration headers.
+
+### How Download & Caching Work
+When you run `flutter run` or `flutter build`:
+1. The Dart Native Assets build hook (`hook/build.dart`) checks whether prebuilts already exist in the local project cache at `.dart_tool/flutter_soloud/xiph/prebuild/<platform>/`.
+2. If not found, it automatically downloads the matching archive from the latest [GitHub Release](https://github.com/alnitak/flutter_soloud_prebuilds/releases) and extracts it into the cache.
+3. It records the release tag in `flutter_soloud_prebuild_version.txt` inside the cache.
+4. Subsequent builds reuse the cached libraries instantly without downloading again.
+
+### Optional: Pinning a Specific Prebuild Version (`prebuild_tag`)
+By default, the build hook queries the `latest` GitHub release. If your team or CI/CD environment requires pinning a specific release tag, specify `prebuild_tag` in your app's `pubspec.yaml`:
+
+```yaml
+hooks:
+  user_defines:
+    flutter_soloud:
+      prebuild_tag: 'v1.0.1' # Optional: pin to a specific release tag
+```
 
 ---
 
@@ -138,7 +161,7 @@ Keep in mind that:
 - **Apple (iOS / macOS)** compiles for both device and simulator architectures.
 - Compilation artifacts are cached in `flutter_soloud`'s `.dart_tool/` directory, meaning they persist even after running `flutter clean` in your application (a re-clone and re-compile only occurs if the plugin's `.dart_tool/` is removed or on fresh CI/CD environments without cache).
 
-For everyday development, leaving this option at its default (`false`) to use the bundled precompiled libraries is strongly recommended.
+For everyday development, leaving this option at its default (`false`) to use the remote precompiled libraries is strongly recommended.
 </Warning>
 
 ### Requirements
@@ -170,3 +193,24 @@ When built without Xiph:
 - All standard WAV, MP3, and synthesis features remain 100% operational.
 
 See [Without Xiph libs](/get_started/no_xiph_libs) for full details.
+
+---
+
+## 5. Platform User Defines Reference
+
+All build customization options are configured in your application's `pubspec.yaml` under `hooks.user_defines.flutter_soloud`:
+
+| User Define | Type | Default | Supported Platforms | Description |
+|---|---|---|---|---|
+| `no_xiph_libs` | `bool` | `false` | All | Excludes Xiph codecs entirely, reducing final binary size by 0.6–3 MB. Disables Ogg, Vorbis, Opus, and FLAC streaming. |
+| `prebuild_tag` | `string` | `'latest'` | All | Specific GitHub release tag to download from [flutter_soloud_prebuilds](https://github.com/alnitak/flutter_soloud_prebuilds) (e.g. `'v1.0.1'`). Default queries latest. |
+| `linux_use_system_libs` | `bool` | `false` | Linux | Links against system-installed libraries via `pkg-config` (`apt`, `pacman`, `dnf`). |
+| `use_system_xiph_libs` | `bool` | `false` | Linux | Legacy alias for `linux_use_system_libs`. |
+| `linux_force_build_libs` | `bool` | `false` | Linux | Clones and builds Xiph libraries from Git source tree using CMake and GCC/Clang. |
+| `macos_use_system_libs` | `bool` | `false` | macOS | Links against system or Homebrew-installed Xiph libraries. |
+| `macos_force_build_libs` | `bool` | `false` | macOS | Clones and builds universal Apple Silicon & Intel static libraries from source via CMake. |
+| `windows_use_system_libs` | `bool` | `false` | Windows | Links against system or `vcpkg`-installed libraries. |
+| `windows_force_build_libs` | `bool` | `false` | Windows | Clones and builds Xiph libraries from Git source tree using CMake and MSVC. |
+| `android_force_build_libs` | `bool` | `false` | Android | Clones and builds shared libraries across all 4 Android ABIs using Android NDK and CMake. |
+| `ios_force_build_libs` | `bool` | `false` | iOS | Clones and builds static libraries for device (`arm64`) and simulator (`arm64`, `x86_64`) via CMake. |
+

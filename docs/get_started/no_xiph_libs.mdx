@@ -5,7 +5,7 @@ description: Configure builds without OGG, Opus, Vorbis, and FLAC libraries to r
 
 ## Overview
 
-The *OGG*, *Opus*, *Vorbis*, and *FLAC* libraries are enabled by default in flutter_soloud (built from source via native hooks). However, if you don't need streaming capabilities, you can exclude these libraries to reduce your app's binary size by 600~3000 KB (depending on platform).
+The *OGG*, *Opus*, *Vorbis*, and *FLAC* libraries are enabled by default in flutter_soloud (prebuilt binaries downloaded and linked via native hooks). However, if you don't need streaming capabilities, you can exclude these libraries to reduce your app's binary size by 600~3000 KB (depending on platform).
 
 For a complete guide on building from source, using system packages, or downloading prebuilt binaries, see the [Xiph Libraries & Codecs Guide](/get_started/xiph_libs).
 
@@ -15,7 +15,7 @@ For a complete guide on building from source, using system packages, or download
 
 Native code for mobile and desktop (Android, iOS, macOS, Windows, Linux) is compiled using [Dart build hooks](https://dart.dev/tools/hooks).
 
-To build your application without the bundled Opus, Ogg, Vorbis, and FLAC libraries, add the `hooks.user_defines` block to your root app's `pubspec.yaml`:
+To build your application without the Opus, Ogg, Vorbis, and FLAC libraries, add the `hooks.user_defines` block to your root app's `pubspec.yaml`:
 
 ```yaml
 hooks:

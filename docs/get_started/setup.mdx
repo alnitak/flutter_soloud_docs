@@ -29,7 +29,7 @@ sudo zypper install alsa-devel
 ```
 ### Native Build System
 
-Native C/C++ engine sources and Xiph audio codecs (Ogg, Vorbis, Opus, FLAC) are compiled automatically using [Dart build hooks](https://dart.dev/tools/hooks). By default, Xiph libraries are cloned and compiled from source automatically without manual setup.
+Native C/C++ engine sources and Xiph audio codecs (Ogg, Vorbis, Opus, FLAC) are compiled and integrated automatically using [Dart build hooks](https://dart.dev/tools/hooks). By default, tested prebuilt Xiph libraries are automatically downloaded on demand from [flutter_soloud_prebuilds](https://github.com/alnitak/flutter_soloud_prebuilds) on first build and cached without manual setup.
 
 To use system-installed libraries (`apt`, `brew`, `vcpkg`, or Windows downloads) or build without Xiph to minimize binary size, see the [Xiph Libraries & Codecs Guide](/get_started/xiph_libs) and [Without Xiph libs](/get_started/no_xiph_libs).
 

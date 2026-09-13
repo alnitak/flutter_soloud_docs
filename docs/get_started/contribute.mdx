@@ -28,7 +28,7 @@ This plugin uses the following structure:
 * `src/soloud`: Contains the SoLoud sources of the fork.
 * `hook`: Contains the [Dart build hooks](https://dart.dev/tools/hooks) (`hook/build.dart`, `hook/sources.dart`, `hook/xiph.dart`) that compile native code automatically for Android, iOS, macOS, Windows, and Linux into Code Assets.
 * `web`: Contains the scripts and assets for compiling and initializing the WebAssembly build on the Web platform.
-* `xiph`: Contains the prebuilt libraries and scripts for `ogg`, `opus`, `vorbis`, and `flac`.
+* `xiph`: Contains build scripts and configuration for `ogg`, `opus`, `vorbis`, and `flac`. Official precompiled binaries are hosted in the [flutter_soloud_prebuilds](https://github.com/alnitak/flutter_soloud_prebuilds) repository.
 
 The `flutter_soloud` plugin utilizes a [forked](https://github.com/alnitak/soloud) repository of [SoLoud](https://github.com/jarikomppa/soloud), where the [miniaudio](https://github.com/mackron/miniaudio) audio backend is used by default.
 
