@@ -45,7 +45,7 @@ Logger.root.level = Level.ALL;
 
 #### Linux
 
-If you encounter any glitches, they might be caused by PulseAudio. To troubleshoot this issue, you can try disabling PulseAudio within the `linux/src.cmake` file. Look for the line `add_definitions(-DMA_NO_PULSEAUDIO)` and uncomment it (now it is the default behavior).
+On Linux, `flutter_soloud` uses `miniaudio` with support for ALSA, PulseAudio, and JACK backends. By default, it prioritizes ALSA, then PulseAudio, then JACK (`LinuxAudioBackend.auto_`). You can choose or switch the backend at runtime via `SoLoud.instance.setLinuxAudioBackend(LinuxAudioBackend backend)` or by passing `linuxAudioBackend` to `SoLoud.instance.init()`.
 
 #### Android
 
