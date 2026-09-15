@@ -15,17 +15,40 @@ This script automatically picks the best WASM build for the current page (see be
 
 ### Linux Setup
 
-Linux distributions require the ALSA library for audio support. If missing, install it using your package manager:
+Linux distributions require an audio server or library (ALSA, PulseAudio, or PipeWire/JACK) for audio playback. The underlying audio engine (`miniaudio`) dynamically loads these libraries at runtime (`libasound.so.2`, `libpulse.so`, `libjack.so`), so no extra development packages or compile-time headers are required to build `flutter_soloud`.
+
+If an audio runtime library is missing on your system, install it using your package manager:
 
 ```bash
 # Debian/Ubuntu
-sudo apt-get install libasound2-dev
+sudo apt install libasound2 libpulse0
 
 # Arch Linux
-sudo pacman -S alsa-lib
+sudo pacman -S alsa-lib libpulse
+
+# Fedora
+sudo dnf install alsa-lib pulseaudio-libs
 
 # OpenSUSE
-sudo zypper install alsa-devel
+sudo zypper install libasound2 libpulse0
+```
+
+#### Audio Backend Selection
+
+On Linux, `flutter_soloud` supports ALSA, PulseAudio, and JACK backends. By default, it uses `LinuxAudioBackend.auto_` which checks and prioritizes **ALSA first**, then PulseAudio, then JACK.
+
+You can specify a preferred backend during initialization:
+
+```dart
+await SoLoud.instance.init(
+  linuxAudioBackend: LinuxAudioBackend.pulseAudio, // auto_, alsa, pulseAudio, jack
+);
+```
+
+Or switch the backend dynamically at runtime:
+
+```dart
+await SoLoud.instance.setLinuxAudioBackend(LinuxAudioBackend.pulseAudio);
 ```
 ### Native Build System
 

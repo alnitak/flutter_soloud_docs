@@ -45,17 +45,14 @@ When debugging the package using the `example/` app, you might want to change th
 Logger.root.level = Level.ALL;
 ```
 
+
 #### Audio Backends
 - **Apple (macOS/iOS)**: Uses `miniaudio` with CoreAudio / AVFAudio.
-- **Linux**: Uses `miniaudio` with ALSA (`MA_NO_PULSEAUDIO` is enabled by default to prevent stutters).
+- **Linux**: On Linux, `flutter_soloud` uses `miniaudio` with support for ALSA, PulseAudio, and JACK backends. By default, it prioritizes ALSA, then PulseAudio, then JACK (`LinuxAudioBackend.auto_`). You can choose or switch the backend at runtime via `SoLoud.instance.setLinuxAudioBackend(LinuxAudioBackend backend)` or by passing `linuxAudioBackend` to `SoLoud.instance.init()`.
 - **Windows**: Uses `miniaudio` with WASAPI.
-- **Android**: Uses `miniaudio`, which automatically selects AAudio on Android 11.0+ or OpenSL|ES on older versions.
-
-#### Android
-
-The default audio backend is `miniaudio`, which will automatically select the appropriate audio backend based on your Android version:
-- AAudio with Android 11.0 and newer.
-- OpenSL|ES for older Android versions.
+- **Android**: The default audio backend is `miniaudio`, which will automatically select the appropriate audio backend based on your Android version:
+  - AAudio with Android 11.0 and newer.
+  - OpenSL|ES for older Android versions.
 
 #### Web
 
