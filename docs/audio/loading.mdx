@@ -10,6 +10,7 @@ description: Learn how to load and manage audio sources in flutter_soloud
 - 📦 Assets
 - 🌐 Network URLs
 - 💾 Memory buffers
+- 🔀 Stereo buffer joining (`joinTwoSources`)
 - 🌊 Generated waveforms
 
 ## Audio Source Management
@@ -84,6 +85,27 @@ await SoLoud.instance.play(sound);
 
 <Info>Using `autoDispose: true` is recommended for short sounds that play once (like sound effects), while manual disposal is better for sounds you intend to reuse multiple times.</Info>
 
+### Querying Source and Temporary File Paths
+
+You can inspect the loaded source identifier and any temporary file path directly from the `AudioSource`:
+
+- **`sound.soundPath`**: Stores the parameter used to load the audio:
+  - For `loadFile()`, `loadMem()`, and `joinTwoSources()`: the `path` argument.
+  - For `loadAsset()`: the asset `key` (e.g. `'assets/sound.mp3'`).
+  - For `loadUrl()`: the network `url` (e.g. `'https://example.com/sound.mp3'`).
+  - For generated sources (`loadWaveform()`, `speechText()`): an empty string `''`.
+- **`sound.tempFilePath`**: Stores the path of the temporary file created on disk when loading an asset or URL on native platforms. For `loadFile()`, `loadMem()`, generated sources, or on the Web platform, this is an empty string `''`.
+
+```dart
+final sound = await SoLoud.instance.loadAsset('assets/audio/laser.mp3');
+
+// Prints the asset key
+debugPrint('Loaded asset: ${sound.soundPath}'); // assets/audio/laser.mp3
+
+// Prints the local temporary cached file path (on native platforms)
+debugPrint('Temp cache file: ${sound.tempFilePath}');
+```
+
 ## Loading Methods
 
 You can load audio in several ways, depending on your source and platform requirements. Below are the available methods:
@@ -145,6 +167,31 @@ final sound = await SoLoud.instance.loadUrl(
 ```
 
 <Info>**Note:** When using `loadAsset` or `loadUrl`, a temporary file is created on the device. On mobile platforms, the operating system may automatically clear the cache without notice. If this happens after loading the sound but before playing it, a crash may occur because the file is no longer available. This is a known but rare issue. To prevent this, consider using `loadMem()` with `LoadMode.memory` mode.</Info>
+
+### Joining Two Buffers into Stereo (`joinTwoSources`)
+
+You can load two separate audio byte buffers and join them into a single stereo `AudioSource` in memory.
+
+```dart
+final leftBytes = await File('left_track.wav').readAsBytes();
+final rightBytes = await File('right_track.wav').readAsBytes();
+
+final stereoSound = await SoLoud.instance.joinTwoSources(
+  'reference_name_stereo',
+  leftBytes,
+  rightBytes,
+  autoDispose: false, // Optional: auto-dispose when playback completes
+);
+
+final handle = SoLoud.instance.play(stereoSound);
+```
+
+**Key behavior of `joinTwoSources()`:**
+- **Mono conversion**: If either buffer contains non-mono channels, it is converted to mono on the native side before joining.
+- **Engine resampling**: Both audio buffers are automatically resampled to the player engine's sample rate, eliminating any real-time resampling during mixer playback.
+- **Length matching**: If the buffers have different lengths, the resulting audio length matches the longer buffer, and the shorter buffer is automatically padded with silence.
+- **Memory mode**: Always loads completely into RAM (`LoadMode.memory`).
+
 
 
 ## Format Support

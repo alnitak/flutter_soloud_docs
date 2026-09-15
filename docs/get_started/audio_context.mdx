@@ -103,6 +103,61 @@ void _handleInterruptions(AudioSession audioSession) {
 }
 ```
 
+## Output-Device Lifecycle
+
+Voice state and output-device state are separate. Pausing a voice preserves its `SoundHandle` and its SoLoud state. Device lifecycle operations only stop, start, or prewarm the platform audio output; they do not maintain a second copy of voice volume, pan, speed, fades, looping, seek position, or other properties.
+
+`play()` and `play3d()` are synchronous and return a `SoundHandle` immediately. An unpaused voice starts the output device after the voice has been created successfully. Creating a paused voice does not start the device; unpausing it later does.
+
+When no unpaused voices remain, the output device follows the configured idle timeout:
+
+- `setAudioDeviceIdleTimeout(Duration.zero)` stops it as soon as possible.
+- A positive duration keeps it running for that grace period (default is 500 ms).
+- `setAudioDeviceIdleTimeout(null)` keeps it running indefinitely, including across `deinit()` and a later `init()`.
+
+<Info>
+Android stops the audio output device when idle (when no voices are actively playing), releasing the audioserver `AudioMix` partial wakelock. If your app requires the output device to stay open indefinitely on Android, call `SoLoud.instance.setAudioDeviceIdleTimeout(null)`.
+</Info>
+
+`startAudioDevice()` temporarily starts or prewarms the output and completes after startup finishes. It does not enable permanent keep-alive; if the engine is still idle, the configured timeout begins again. Loaded sounds, active voices, and filter states are all preserved across device stop and start, so playback resumes seamlessly.
+
+`stopAudioDevice()` is an idle-only conditional stop by default, so it succeeds without interrupting active playback. Use `stopAudioDevice(force: true)` only when the output must be stopped while voices remain active; their voice state is not changed.
+
+`getAudioDeviceState()` is a cheap synchronous read of the actual current backend state as an `AudioDeviceState` enum: `uninitialized`, `stopped`, `started`, `starting`, or `stopping`. It is safe to call even before `init()`.
+
+### Changing the Output Device
+
+Use `listPlaybackDevices()` to enumerate the OS playback devices and `changeDevice()` to switch the output to one of them (or back to the system default when called without an argument):
+
+```dart
+final devices = SoLoud.instance.listPlaybackDevices();
+await SoLoud.instance.changeDevice(newDevice: devices[1]);
+```
+
+`changeDevice()` returns a `Future` because device enumeration and replacement can block; it runs off the UI isolate, so it won't freeze the app (or trigger an ANR on Android). Await it to know when the swap has finished. The replacement device is only started when the old one was running or the idle policy requires it, so a device stopped via `stopAudioDevice()` or the idle timeout stays stopped across the swap.
+
+<Info>
+On the web only the default output device is returned.
+</Info>
+
+### Automatic Device Start Failures
+
+`play()`, `play3d()`, `setPause()`, `pauseSwitch()`, `speechText()`, `playClocked()`, `play3dClocked()` and `playScheduled()` request the output-device start on a background scheduler instead of blocking for it. This keeps them synchronous and non-blocking, but it also means they **cannot throw** when that start fails — they return before it has been attempted. `SoLoudAudioDeviceFailedToStartCppException` is therefore no longer thrown by these methods.
+
+Instead, subscribe to `SoLoud.instance.audioDeviceStartFailures` to be notified when an automatic start fails (after the backend has already rebuilt the device and retried). Voice state is untouched, so recovery is usually just an explicit start:
+
+```dart
+SoLoud.instance.audioDeviceStartFailures.listen((_) async {
+  try {
+    await SoLoud.instance.startAudioDevice();
+  } on SoLoudAudioDeviceFailedToStartCppException {
+    // Still unavailable: tell the user, or back off and retry later.
+  }
+});
+```
+
+`startAudioDevice()` and `changeDevice()` are the exceptions: they await their device operation and report failures directly to their caller, so they do not emit on this stream.
+
 <Info>
   **iOS and Google Ads**
 
@@ -112,7 +167,8 @@ void _handleInterruptions(AudioSession audioSession) {
 import GoogleMobileAds
 
 func application(_ application: UIApplication,
-                 didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+                 didFinishLaunchingWithOptions launchOptions: 
+                 [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
  
   // Add this
   MobileAds.shared.audioVideoManager.isAudioSessionApplicationManaged = true

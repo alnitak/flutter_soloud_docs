@@ -19,6 +19,10 @@
           "href": "/get_started/setup"
         },
         {
+          "title": "📦 Xiph Libraries & Codecs",
+          "href": "/get_started/xiph_libs"
+        },
+        {
           "title": "🚫 Without Xiph libs",
           "href": "/get_started/no_xiph_libs"
         },
@@ -69,12 +73,20 @@
           "href": "/advanced/streaming"
         },
         {
+          "title": "🔄 Pull Buffer Streaming",
+          "href": "/advanced/pull_buffer_streaming"
+        },
+        {
           "title": "🎚️ Mixing Busses",
           "href": "/advanced/mixing_bus"
         },
         {
           "title": "🎛️ Effects & Filters",
           "href": "/advanced/filters"
+        },
+        {
+          "title": "🔴 Output capture",
+          "href": "/advanced/mixer_output_capture"
         }
       ]
     },

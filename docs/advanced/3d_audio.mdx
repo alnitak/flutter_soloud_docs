@@ -24,14 +24,17 @@ description: Learn how to use positional audio features
 Play a sound with 3D positioning:
 
 ```dart
-final handle = await SoLoud.instance.play3d(
+final handle = SoLoud.instance.play3d(
   sound,
-  posX: 10.0,
-  posY: 0.0,
-  posZ: 5.0,
+  10.0, // posX
+  0.0,  // posY
+  5.0,  // posZ
   velX: 0.0, // optional velocity
   velY: 0.0,
   velZ: 0.0,
+  volume: 1.0,
+  scale: 1.0,
+  looping: false,
 );
 ```
 
