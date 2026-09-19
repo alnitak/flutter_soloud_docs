@@ -5,12 +5,17 @@ description: Learn how to stream and buffer audio data
 
 ## Overview
 
-*flutter_soloud* supports streaming audio data while receiving it in real-time. The supported audio data formats are raw PCM, MP3, WAV, or compressed through the [Opus](https://www.opus-codec.org/), [Vorbis](https://xiph.org/vorbis/), and [FLAC](https://xiph.org/flac/) codecs with [Ogg](https://xiph.org/ogg/) container libraries from [Xiph.org](https://www.xiph.org/). This is particularly useful when:
-- Streaming audio from network sources like icecast radio
-- Working with OpenAI or other streaming APIs
+*flutter_soloud* supports streaming audio data while receiving it in real-time. The supported audio data formats are raw PCM, MP3, WAV, FLAC, AAC (ADTS), AC-3, E-AC-3, or compressed through the [Opus](https://www.opus-codec.org/), [Vorbis](https://xiph.org/vorbis/), and [FLAC](https://xiph.org/flac/) codecs with [Ogg](https://xiph.org/ogg/) container libraries from [Xiph.org](https://www.xiph.org/). This is particularly useful when:
+- Streaming audio from network sources like icecast radio or WebSockets
+- Working with OpenAI or other streaming audio APIs
 - Generating audio data on-the-fly
 - Processing audio in chunks
 - Automatically pause when buffering is needed and resume playback when enough data is available
+
+<Warning>
+**MP4 and M4A containers are NOT supported for streaming:**
+ISO base media file format containers (`.mp4`, `.m4a`) require non-sequential container/moov atom parsing and are therefore **not supported** for streaming (`setBufferStream` or `setPullBufferStream`). Use file/memory loading (`loadAsset`, `loadFile`, `loadMem`) for MP4 and M4A audio. For real-time streaming, stream raw AAC (ADTS streams), MP3, Ogg (Opus/Vorbis/FLAC), WAV, FLAC, AC-3, or E-AC-3.
+</Warning>
 
 The *Opus* and *Ogg* libraries are embedded by default in flutter_soloud. However, if you don't need streaming capabilities, please read the [No Xiph libs](/get_started/no_xiph_libs) section for how to exclude these libraries from your app.
 
@@ -57,9 +62,9 @@ final stream = SoLoud.instance.setBufferStream(
 | `maxBufferSizeDuration`| Alternative to `maxBufferSizeBytes`, specifies the maximum buffer size as a duration (in seconds), calculated using `sampleRate` and `channels`. No memory is allocated upfront. |
 | `bufferingType`        | Determines how buffering works during playback. See below.<br/>  `BufferingType.preserved`: Keeps all audio data in memory, allows multiple playback instances, supports seeking and looping. <br/>`BufferingType.released`: Frees memory of already played data, allows only a single playback instance, and must be manually disposed. |
 | `bufferingTimeNeeds`   | Buffering time required (in seconds). If playback reaches the end of the current buffer, it will pause and wait until enough data is buffered to cover this time. <br/> **Note:** With `BufferingType.released`, the stream position is always 0; use `getStreamTimeConsumed` to get elapsed time. |
-| `sampleRate`           | Sample rate for playback (e.g., 22050 or 44100 Hz). For the `opus` format, valid values are 48000, 24000, 16000, 12000, or 8000 Hz. Incoming data is resampled to this rate. |
-| `channels`             | Number of audio channels. The `opus` format supports only mono and stereo. |
-| `format`               | Audio data format. Options: `f32le`, `s8`, `s16le`, `s32le`, or`auto`. <br/>**Note:** the `auto` autodetects MP3, WAV, FLAC, and Ogg containers with Opus, Vorbis, and FLAC. With this format, the `samplerate` and `channels` parameters are ignored.|
+| `sampleRate`           | Sample rate for playback (e.g., 22050 or 44100 Hz). Used for raw PCM streams. When using `BufferType.auto`, incoming audio metadata will automatically configure the sample rate. |
+| `channels`             | Number of audio channels. Used for raw PCM streams. When using `BufferType.auto`, channels are detected automatically from the stream. |
+| `format`               | Audio data format. Options: `f32le`, `s8`, `s16le`, `s32le`, or `auto`. <br/>**Note:** `BufferType.auto` autodetects MP3, WAV, FLAC, AAC (ADTS), AC-3, E-AC-3, and Ogg containers with Opus, Vorbis, and FLAC. With this format, the `sampleRate` and `channels` parameters are ignored. *(Note: MP4 and M4A containers are not supported for streaming).* |
 | `onBuffering`          | Callback triggered when buffering starts (`isBuffering = true`) and ends (`isBuffering = false`). Receives the playback handle and the current buffered time (in seconds). |
 | `onMetadata`          | Callback triggered when starting to add audio data or when metadata changes while streaming. It returns a `AudioMetadata` object. |
 
@@ -105,18 +110,31 @@ For raw PCM data, the following formats are supported:
 - `s32le` - Signed 32-bit PCM (little endian)
 - `f32le` - 32-bit float PCM (little endian)
 
-You should also need to specify the sample rate and the number of channels.
+You also need to specify the sample rate and the number of channels for raw PCM data.
+
 - `auto` - Automatically detect the format
 
-Supported formats are:
-- `mp3` - Mp3 format
-- `wav` - Wav format
+Supported formats in `auto` mode are:
+- `mp3` - MP3 format
+- `wav` - WAV format
 - `flac` - FLAC format
 - `opus` - Ogg container with Opus codec
 - `ogg` - Ogg container with Vorbis codec
 - `flac` - Ogg container with FLAC codec
+- `aac` - AAC format (raw ADTS stream)
+- `ac3` - AC-3 (Dolby Digital, where platform supported)
+- `eac3` - E-AC-3 (Dolby Digital Plus, where platform supported)
+
 These compressed formats support metadata (using the `onMetadata` callback).
 
+<Warning>
+**MP4 and M4A containers are NOT supported for streaming:**
+Streaming (`setBufferStream` and `setPullBufferStream`) requires packet-based or streamable audio formats. Because ISO base media file format containers (`.mp4`, `.m4a`) require seeking / moov atom index parsing, they cannot be streamed in chunks. Load them as files/assets (`loadAsset`, `loadFile`, `loadMem`) instead.
+</Warning>
+
+<Info>
+**Linux Note for AAC, AC-3, and E-AC-3:** Streaming these formats on Linux requires FFmpeg runtime libraries (`libavcodec` and `libavformat`) installed on the user's system (e.g. `sudo apt install ffmpeg libavcodec-extra`, `sudo pacman -S ffmpeg`, `sudo dnf install ffmpeg-free`). Core formats (MP3, WAV, FLAC, OGG) do not require FFmpeg.
+</Info>
 
 ## Adding Audio Data
 
@@ -151,7 +169,7 @@ final socket =
 // Set up the audio stream
 final stream = SoLoud.instance.setBufferStream(
   bufferingType: BufferingType.released,
-  format: BufferType.opus,
+  format: BufferType.auto,
   onBuffering: (isBuffering, handle, time) {
     // When isBuffering==true, the stream is set to paused automatically till
     // it reaches bufferingTimeNeeds of audio data or until setDataIsEnded is called
@@ -162,7 +180,6 @@ final stream = SoLoud.instance.setBufferStream(
   onMetadata: (metadata) {
     debugPrint(metadata.toString());
   },
-  }
 );
 
 // Start the the playback whenever enough data is buffered (defined by `bufferingTimeNeeds` seconds) whenever enough data is buffered (defined by `bufferingTimeNeeds` seconds)

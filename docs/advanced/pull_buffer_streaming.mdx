@@ -105,6 +105,8 @@ This is far smaller than the 10 GB file size. The actual memory usage depends on
 
 ### Limitations
 - **Requires file size in advance**: `audioSizeBytes` must be known when the stream is created. This is used for duration calculation and end-of-stream handling.
+- **MP4 and M4A containers are not supported for streaming**: Pull buffer streaming requires packet-based / streamable formats (MP3, WAV, FLAC, Ogg Opus/Vorbis/FLAC, AAC ADTS, AC-3, E-AC-3). ISO base media containers (`.mp4`, `.m4a`) require random-access moov atom parsing and cannot be streamed in chunks; use `loadFile`, `loadAsset`, or `loadMem` instead.
+- **Linux requirement for AAC / AC-3 / E-AC-3**: On Linux, streaming these formats requires FFmpeg shared libraries (`libavcodec` and `libavformat`) installed on the host system (e.g. `sudo apt install ffmpeg libavcodec-extra`). Core formats (MP3, WAV, FLAC, OGG) work without FFmpeg.
 - **Playhead at the edge of the buffer**: the current position is always near the start of the decoded window, not in the middle of a large pre-buffered region.
 - **Decoder is eager**: incoming encoded data is decoded as soon as it is supplied, not strictly at the last moment. The trigger only controls when more encoded data is requested.
 - **Single playback instance**: the pull buffer is tied to one playback voice. Create a new stream for a new voice.

@@ -197,12 +197,22 @@ final handle = SoLoud.instance.play(stereoSound);
 ## Format Support
 
 Supported audio formats:
-| Format | Extension | Description |
-|:--|:--|:--|
-| MP3 | `.mp3` | Most common compressed format |
-| WAV | `.wav` | Uncompressed PCM audio |
-| OGG | `.ogg` | Free compressed format |
-| FLAC | `.flac` | Lossless compression |
+| Format | Extension | Description | Decoder Backend |
+|:--|:--|:--|:--|
+| MP3 | `.mp3` | Most common compressed format | Built-in (miniaudio) |
+| WAV | `.wav` | Uncompressed PCM audio | Built-in (SoLoud) |
+| OGG | `.ogg`, `.opus` | Ogg container with Vorbis, Opus, or FLAC | Bundled Xiph libraries |
+| FLAC | `.flac` | Lossless compression | Bundled Xiph libraries |
+| M4A | `.m4a` | MPEG-4 Audio (AAC/ALAC) | OS-native decoder |
+| MP4 | `.mp4` | Audio track from MP4 containers | OS-native decoder |
+| AAC | `.aac` | Advanced Audio Coding (ADTS) | OS-native decoder |
+| AC-3 | `.ac3` | Dolby Digital | OS-native decoder |
+| E-AC-3 | `.eac3` | Dolby Digital Plus | OS-native decoder |
+
+<Info>
+- **Streaming Note:** MP4 and M4A containers are supported for file, asset, URL, and memory loading, but are **NOT supported for chunk streaming** (`setBufferStream` / `setPullBufferStream`). For real-time streaming, use elementary stream formats like AAC ADTS, AC-3, E-AC-3, OGG, MP3, WAV, or raw PCM.
+- **Linux Dependency Note:** On Linux, decoding M4A, MP4, AAC, AC-3, and E-AC-3 relies on FFmpeg shared libraries (`libavcodec` and `libavformat`) installed on the system (e.g. `sudo apt install ffmpeg libavcodec-extra`). Core formats (MP3, WAV, OGG, FLAC) work out of the box without FFmpeg. See [Linux Setup](/get_started/setup#extended-audio-formats-on-linux-m4a-mp4-aac-ac-3-e-ac-3).
+</Info>
 
 ## Best Practices
 

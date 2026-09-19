@@ -50,6 +50,33 @@ Or switch the backend dynamically at runtime:
 ```dart
 await SoLoud.instance.setLinuxAudioBackend(LinuxAudioBackend.pulseAudio);
 ```
+
+#### Extended Audio Formats on Linux (M4A, MP4, AAC, AC-3, E-AC-3)
+
+While core audio formats (MP3, WAV, FLAC, and OGG Opus/Vorbis/FLAC) are decoded by built-in and bundled libraries, extended OS-native formats on Linux (**M4A**, **MP4 audio tracks**, **AAC**, **AC-3**, and **E-AC-3**) rely on **FFmpeg** shared libraries (`libavcodec` and `libavformat`).
+
+The native engine dynamically loads these shared libraries at runtime using `dlopen` (probing for `libavcodec.so.58` through `libavcodec.so.61`), so no development headers or compile-time dependencies are required to build your app.
+
+To enable playback and streaming of these formats on Linux, ensure FFmpeg runtime libraries are installed on the user's system:
+
+```bash
+# Debian / Ubuntu / Linux Mint
+sudo apt install ffmpeg libavcodec-extra
+
+# Arch Linux / Manjaro
+sudo pacman -S ffmpeg
+
+# Fedora
+sudo dnf install ffmpeg-free # or ffmpeg from RPM Fusion
+
+# OpenSUSE
+sudo zypper install ffmpeg
+```
+
+<Info>
+If FFmpeg libraries are not installed on a Linux host, core formats (MP3, WAV, FLAC, OGG) continue to play normally. Loading an M4A/MP4/AAC/AC-3/E-AC-3 file without FFmpeg will throw an error indicating that `libavformat`/`libavcodec` was not found.
+</Info>
+
 ### Native Build System
 
 Native C/C++ engine sources and Xiph audio codecs (Ogg, Vorbis, Opus, FLAC) are compiled automatically using [Dart build hooks](https://dart.dev/tools/hooks). By default, Xiph libraries are cloned and compiled from source automatically without manual setup.
