@@ -22,6 +22,14 @@ ISO base media file format containers (`.mp4`, `.m4a`) require non-sequential co
 Web browsers (including Google Chrome, Chromium browsers, Mozilla Firefox, and Safari) do **not** support streaming raw AC-3 or E-AC-3 elementary bitstreams in WebCodecs or Web Audio. While Chrome and Firefox lack Dolby licensing, Safari's WebCodecs engine fails when fed raw AC-3 elementary stream frames. AC-3 and E-AC-3 streaming is supported on native platforms only (iOS, macOS native, Android, Windows, and Linux with FFmpeg). Attempting to stream AC-3 or E-AC-3 on the Web returns `PlayerErrors.audioFormatNotSupported`. For cross-browser web streaming, use **AAC (ADTS)**, **Opus (Ogg)**, **MP3**, **FLAC**, or **PCM**.
 </Warning>
 
+<Info>
+**Platform Support for AAC, AC-3, and E-AC-3 Streaming:**
+- **Windows**: Handled natively via Windows Media Foundation Transform (MFT).
+- **Linux**: Handled dynamically using system FFmpeg shared libraries (`libavcodec`). Ensure FFmpeg is installed (`sudo apt install ffmpeg libavcodec-extra` on Debian/Ubuntu, `sudo pacman -S ffmpeg` on Arch, `sudo dnf install ffmpeg-free` on Fedora).
+- **macOS / iOS / Android**: Handled natively via AudioToolbox and MediaCodec.
+- **Buffering Modes & Metadata**: Both `BufferingType.released` (bounded memory for continuous live radio) and `BufferingType.preserved` (retains data for seeking and looping) are fully supported across these formats, with automatic extraction of sample rates, channels, bitrates, ID3v2 tags, and ICY metadata.
+</Info>
+
 The *Opus* and *Ogg* libraries are embedded by default in flutter_soloud. However, if you don't need streaming capabilities, please read the [No Xiph libs](/get_started/no_xiph_libs) section for how to exclude these libraries from your app.
 
 ## Buffering Strategies
