@@ -82,3 +82,24 @@ flutter run -d chrome --web-browser-flag '--disable-web-security' -t lib/main.da
 
 ***It is not possible to read a local audio file directly*** on the web. For this reason, `loadMem()` has been added, which requires the `Uint8List` byte buffer of the audio file.
 ***NOTE***: on the web the `mode` parameter of `loadMem()` is ignored (`LoadMode.disk` is not possible, since browsers cannot read from the local file system). The audio data is instead fed to the engine in chunks, yielding to the event loop between each chunk, so even large files should not freeze the UI.
+
+---
+
+### Audio Codec & Streaming Support on Web
+
+WebCodecs and HTML5 Web Audio codec availability depends on browser platform licensing:
+
+- **Supported across all browsers (Chrome, Safari, Firefox, Edge)**:
+  - AAC (`mp4a.40.2` ADTS streams)
+  - Opus (Ogg container)
+  - MP3 (`audio/mpeg`)
+  - Vorbis (Ogg container)
+  - FLAC (raw or Ogg container)
+  - Raw PCM (`f32le`, `s16le`, `s8`, `s32le`)
+
+<Warning>
+**AC-3 and E-AC-3 (Dolby Digital / Dolby Digital Plus) limitation:**
+AC-3 and E-AC-3 are **not supported on the Web platform in any browser**. Google Chrome, Chromium-based browsers, and Mozilla Firefox do not support AC-3/E-AC-3 due to Dolby licensing restrictions. While Safari supports AC-3 inside MP4 video containers, Safari's WebCodecs engine rejects raw AC-3 elementary stream frames (`InternalAudioDecoderCocoa decoding failed`), and Web Audio API does not decode raw `.ac3` files.
+
+Attempting to load or stream AC-3 or E-AC-3 data on the Web returns `PlayerErrors.audioFormatNotSupported`. For reliable cross-browser audio and streaming on Web, always use **AAC (ADTS)**, **Opus**, **MP3**, **FLAC**, **WAV**, or **PCM**.
+</Warning>

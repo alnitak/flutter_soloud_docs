@@ -211,6 +211,7 @@ Supported audio formats:
 
 <Info>
 - **Streaming Note:** MP4 and M4A containers are supported for file, asset, URL, and memory loading, but are **NOT supported for chunk streaming** (`setBufferStream` / `setPullBufferStream`). For real-time streaming, use elementary stream formats like AAC ADTS, AC-3, E-AC-3, OGG, MP3, WAV, or raw PCM.
+- **Web Browser AC-3 / E-AC-3 Note:** AC-3 and E-AC-3 are **not supported on the Web platform in any browser**. Chrome and Firefox lack Dolby licensing, and Safari's WebCodecs engine rejects raw AC-3 elementary stream frames, while Web Audio API does not decode raw `.ac3` files. On the Web, attempt to load or stream AC-3/E-AC-3 returns `PlayerErrors.audioFormatNotSupported`. Use AAC, Opus, MP3, FLAC, WAV, or PCM on the Web.
 - **Linux Dependency Note:** On Linux, decoding M4A, MP4, AAC, AC-3, and E-AC-3 relies on FFmpeg shared libraries (`libavcodec` and `libavformat`) installed on the system (e.g. `sudo apt install ffmpeg libavcodec-extra`). Core formats (MP3, WAV, OGG, FLAC) work out of the box without FFmpeg. See [Linux Setup](/get_started/setup#extended-audio-formats-on-linux-m4a-mp4-aac-ac-3-e-ac-3).
 </Info>
 

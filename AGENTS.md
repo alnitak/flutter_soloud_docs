@@ -28,6 +28,7 @@ Always remember and document:
 - **MP4 and M4A containers are NOT supported for streaming** (`setBufferStream` / `setPullBufferStream`) because ISO base media file format containers require random-access/moov atom parsing.
 - MP4/M4A files are supported for loading from assets, local files, URLs, or memory (`loadAsset`, `loadFile`, `loadUrl`, `loadMem`).
 - For real-time streaming, supported formats include raw PCM, MP3, WAV, FLAC, AAC (ADTS streams), AC-3, E-AC-3, and Ogg containers with Opus, Vorbis, or FLAC.
+- **AC-3 and E-AC-3 on Web**: AC-3 and E-AC-3 are **NOT supported on the Web platform in any browser** (Chrome, Firefox, Safari). Chrome and Firefox lack Dolby licensing, and Safari's WebCodecs engine (`InternalAudioDecoderCocoa`) fails on raw AC-3 elementary stream frames, while Web Audio API does not decode raw AC-3 files. AC-3 and E-AC-3 are native-only formats (iOS, macOS native, Android, Windows, Linux with FFmpeg). Attempting to load or stream AC-3 or E-AC-3 on Web returns `PlayerErrors.audioFormatNotSupported`. For cross-browser web streaming and audio playback, use AAC (ADTS), Opus, MP3, FLAC, WAV, or raw PCM.
 
 ## Linux Platform Dependencies
 - Core audio formats (MP3, WAV, FLAC, Ogg Opus/Vorbis/FLAC) use built-in or bundled decoders and work out of the box on Linux.

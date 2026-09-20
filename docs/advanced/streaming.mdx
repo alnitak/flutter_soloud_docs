@@ -17,6 +17,11 @@ description: Learn how to stream and buffer audio data
 ISO base media file format containers (`.mp4`, `.m4a`) require non-sequential container/moov atom parsing and are therefore **not supported** for streaming (`setBufferStream` or `setPullBufferStream`). Use file/memory loading (`loadAsset`, `loadFile`, `loadMem`) for MP4 and M4A audio. For real-time streaming, stream raw AAC (ADTS streams), MP3, Ogg (Opus/Vorbis/FLAC), WAV, FLAC, AC-3, or E-AC-3.
 </Warning>
 
+<Warning>
+**AC-3 and E-AC-3 streaming is NOT supported on the Web platform:**
+Web browsers (including Google Chrome, Chromium browsers, Mozilla Firefox, and Safari) do **not** support streaming raw AC-3 or E-AC-3 elementary bitstreams in WebCodecs or Web Audio. While Chrome and Firefox lack Dolby licensing, Safari's WebCodecs engine fails when fed raw AC-3 elementary stream frames. AC-3 and E-AC-3 streaming is supported on native platforms only (iOS, macOS native, Android, Windows, and Linux with FFmpeg). Attempting to stream AC-3 or E-AC-3 on the Web returns `PlayerErrors.audioFormatNotSupported`. For cross-browser web streaming, use **AAC (ADTS)**, **Opus (Ogg)**, **MP3**, **FLAC**, or **PCM**.
+</Warning>
+
 The *Opus* and *Ogg* libraries are embedded by default in flutter_soloud. However, if you don't need streaming capabilities, please read the [No Xiph libs](/get_started/no_xiph_libs) section for how to exclude these libraries from your app.
 
 ## Buffering Strategies
@@ -64,7 +69,7 @@ final stream = SoLoud.instance.setBufferStream(
 | `bufferingTimeNeeds`   | Buffering time required (in seconds). If playback reaches the end of the current buffer, it will pause and wait until enough data is buffered to cover this time. <br/> **Note:** With `BufferingType.released`, the stream position is always 0; use `getStreamTimeConsumed` to get elapsed time. |
 | `sampleRate`           | Sample rate for playback (e.g., 22050 or 44100 Hz). Used for raw PCM streams. When using `BufferType.auto`, incoming audio metadata will automatically configure the sample rate. |
 | `channels`             | Number of audio channels. Used for raw PCM streams. When using `BufferType.auto`, channels are detected automatically from the stream. |
-| `format`               | Audio data format. Options: `f32le`, `s8`, `s16le`, `s32le`, or `auto`. <br/>**Note:** `BufferType.auto` autodetects MP3, WAV, FLAC, AAC (ADTS), AC-3, E-AC-3, and Ogg containers with Opus, Vorbis, and FLAC. With this format, the `sampleRate` and `channels` parameters are ignored. *(Note: MP4 and M4A containers are not supported for streaming).* |
+| `format`               | Audio data format. Options: `f32le`, `s8`, `s16le`, `s32le`, or `auto`. <br/>**Note:** `BufferType.auto` autodetects MP3, WAV, FLAC, AAC (ADTS), AC-3, E-AC-3, and Ogg containers with Opus, Vorbis, and FLAC. With this format, the `sampleRate` and `channels` parameters are ignored. *(Note: MP4 and M4A containers are not supported for streaming; on Web, AC-3 and E-AC-3 are not supported by any browser and return `PlayerErrors.audioFormatNotSupported`).* |
 | `onBuffering`          | Callback triggered when buffering starts (`isBuffering = true`) and ends (`isBuffering = false`). Receives the playback handle and the current buffered time (in seconds). |
 | `onMetadata`          | Callback triggered when starting to add audio data or when metadata changes while streaming. It returns a `AudioMetadata` object. |
 
