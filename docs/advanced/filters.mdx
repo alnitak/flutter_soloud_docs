@@ -5,9 +5,7 @@ description: Learn how to use audio effects and filters
 
 ## Overview
 
-*flutter_soloud* provides various audio effects and filters that can be applied globally to all sounds or individually to specific sound sources.
-
-**Note:** individual filters are not supported on the web platform.
+*flutter_soloud* provides various audio effects and filters that can be applied globally to all sounds, to mixing buses, or individually to specific sound sources across all platforms including web.
 
 ## Available Filters
 
@@ -19,14 +17,13 @@ description: Learn how to use audio effects and filters
 - `waveShaper` - Audio distortion/wave shaping [SoLoud documentation](https://solhsa.com/soloud/waveshaperfilter.html)
 - `lofi` - Bit depth and sample rate reduction [SoLoud documentation](https://solhsa.com/soloud/lofifilter.html)
 - `robotize` - Voice modulation effect [SoLoud documentation](https://solhsa.com/soloud/robotizefilter.html)
-- `equalizer` - Multi-band equalizer [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/parametric_eq_filter)
+- `parametricEq` - N-band parametric equalizer (Gaussian bell curve response with gain, frequency, and Q controls) [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/parametric_eq_filter.cpp)
 - `pitchShifter` - Change pitch without affecting speed [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/pitch_shift_filter.cpp#L16)
 - `compressor` - Dynamic range compression [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/compressor.cpp#L24)
 - `limiter` - Peak volume control [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/limiter.cpp#L20)
 
 <Info>
-- Individual filters for sounds are not supported on Web platform.
-- *freeverb* supports only 2 channels. So using *freeverb* as global filter, the engine should be initializeded using the default 2 channels and when using it as sound filter it must be with 2 channels.
+- *freeverb* supports only 2 channels. When using *freeverb* as a global filter, the engine should be initialized using the default 2 channels, and when using it as a sound filter it must be applied to 2-channel sounds.
 </Info>
 
 ## Global Filters
@@ -80,14 +77,20 @@ filters.echoFilter
 
 ### Parametric Equalizer
 
+STFT-based N-band parametric equalizer with smooth Gaussian bell curves on a logarithmic frequency scale. Supports up to 64 independent bands with gain, center frequency, and Q factor controls. By default, bands are geometrically spaced between 30 Hz and 12,000 Hz.
+
 ```dart
-// Enhance low frequencies
+// Configure parametric equalizer
+filters.parametricEqFilter.activate();
 filters.parametricEqFilter
-  ..stftWindowSize.value = 2048 //STFT window size parameter (32-4096, power of 2, default 1024)
-  ..numBands.value = 64         // number of bands parameter (1-64, default 3)
-  ..bandGain(0).value = 1       // gain parameter for a specific band
-  ..bandGain(1).value = 0.5
-  ..bandGain(2).value = 1.3;
+  ..stftWindowSize.value = 1024 // STFT window size (32-4096, power of 2, default 1024)
+  ..numBands.value = 5          // Number of active bands (1-64, default 3)
+  ..bandGain(0).value = 1.5     // Boost band 0 gain (0.0 - 4.0, 1.0 = flat)
+  ..bandFreq(0).value = 60      // Center frequency in Hz (10 - 24000 Hz)
+  ..bandQ(0).value = 2.0;       // Quality factor / bell width (0.1 - 20)
+
+// Read current center frequency of any band
+final freq = filters.parametricEqFilter.bandFrequency(0);
 ```
 
 ### Bass Boost
