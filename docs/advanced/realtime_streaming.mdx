@@ -120,9 +120,9 @@ final written = stream.pushScheduledFloat32(
 
 ---
 
-## Managed Background Isolate & Web Feeding (`startFeeder`)
+## Managed Background Isolate & Web Feeding (`startFloat32Feeder`)
 
-Instead of manually spawning a Dart `Isolate`, setting up `ReceivePort`/`SendPort` handshakes, allocating `RealtimeNativeBuffer`, and writing `Timer.periodic` watermark loops, use **`stream.startFeeder<TState>(...)`** (or **`stream.startInt16Feeder<TState>(...)`**):
+Instead of manually spawning a Dart `Isolate`, setting up `ReceivePort`/`SendPort` handshakes, allocating `RealtimeNativeBuffer`, and writing `Timer.periodic` watermark loops, use **`stream.startFloat32Feeder<TState>(...)`** (or **`stream.startInt16Feeder<TState>(...)`**):
 
 - **On Native (macOS, iOS, Android, Windows, Linux)**: Automatically spawns a dedicated background Dart `Isolate`, attaches to the lock-free C++ ring buffer, pre-allocates a zero-GC `RealtimeNativeBuffer`, and invokes your top-level `onFeed` function whenever `availableToRead < targetBufferedFrames`.
 - **On Web (`kIsWeb`)**: Automatically runs the exact same `onFeed` function on the Web event loop using a pre-allocated WASM `RealtimeNativeBuffer`—no `if (!kIsWeb)` branching required.
