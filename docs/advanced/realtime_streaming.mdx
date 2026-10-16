@@ -1,0 +1,209 @@
+---
+title: Real-Time Audio Mixer Injection
+description: Ultra-low-latency lock-free SPSC ring buffer streaming, instantaneous mixer injection, and cross-platform Isolate/Web feeding
+---
+
+## Overview
+
+While [Audio Streaming (`/advanced/streaming`)](/advanced/streaming) (`setBufferStream`) and [Pull Buffer Streaming (`/advanced/pull_buffer_streaming`)](/advanced/pull_buffer_streaming) (`setPullBufferStream`) are designed for network streams, radio, and compressed containers, **Real-Time Audio Mixer Injection (`setRealtimeStream`)** is built for **ultra-low-latency live PCM synthesis and interactive instruments**:
+
+- **Lock-Free SPSC Planar Ring Buffer (`RealtimeRingBuffer`)**: Pre-allocated single-producer single-consumer atomic ring buffer with `std::memory_order_acquire` / `std::memory_order_release` semantics, SIMD stereo de-interleaving (`NEON` / `SSE`), and zero heap allocations on the audio thread.
+- **Instantaneous Playing-Window Mixer Injection**: Like `playClocked` and `playScheduled`, pushing samples via `pushFloat32`, `pushInt16`, `pushClockedFloat32`, `pushScheduledFloat32`, or `pushNativeFloat32` immediately rewinds and re-renders the active native lookahead mixer ring (`mRenderRing`) so newly pushed audio appears in the **currently playing hardware window**.
+- **Anti-Click Raised-Cosine Underrun Recovery**: If a real-time stream runs out of frames (or your feeder callback returns `0` frames while paused), the C++ mixer smoothly decays the last sample over a 64-frame raised-cosine ramp (`~1.3 ms`) into silence (`0.0`) without speaker clicks, keeping the voice alive until new audio arrives.
+- **Managed Isolate & Web Feeder (`RealtimeStreamFeeder`)**: Call `stream.startFeeder<TState>(...)` to automatically spawn a background Dart `Isolate` on native platforms (with zero `SendPort`/`ReceivePort` or buffer management boilerplate) and automatically fall back to a zero-GC timer loop on Web (`kIsWeb`).
+
+<Info>
+**Choosing the Right Streaming API:**
+- Use **`setBufferStream`** for internet radio, WebSocket chunks, or compressed streams (MP3, WAV, FLAC, Ogg Opus/Vorbis/FLAC, AAC ADTS, AC-3, E-AC-3) where dynamic buffering and automatic pause/resume are desired.
+- Use **`setRealtimeStream`** for interactive synthesizers, drum machines, live microphone FX pipelines, VoIP, or emulator audio output where `5–20 ms` latency and immediate mixer injection are required.
+- Use **[Custom DSP & Audio Generators (`/advanced/custom_dsp`)](/advanced/custom_dsp)** (`createCustomAudioSource`) when you want zero ring-buffer latency by generating samples synchronously inside the C++/Wasm audio thread callback.
+</Info>
+
+<Warning>
+**Audio Streaming Format Rules:**
+`setRealtimeStream` accepts **raw PCM samples only** (`BufferType.f32le`, `BufferType.s16le`, or `BufferType.f32lePlanar`). For compressed format streaming, use `setBufferStream` or `setPullBufferStream` (remembering that MP4 and M4A containers are not supported for streaming, and AC-3/E-AC-3 are native-only and not supported on Web).
+</Warning>
+
+---
+
+## Creating a `RealtimeStreamHandle`
+
+Call `SoLoud.instance.setRealtimeStream(...)` after initializing the engine, play its `.source`, and bind the active voice handle so pushed audio can be spliced directly into the currently playing mixer window:
+
+```dart
+import 'dart:math' as math;
+import 'dart:typed_data';
+import 'package:flutter_soloud/flutter_soloud.dart';
+
+Future<void> main() async {
+  await SoLoud.instance.init(sampleRate: 48000, bufferSize: 512);
+
+  final stream = SoLoud.instance.setRealtimeStream(
+    sampleRate: 48000,
+    channels: Channels.stereo,
+    format: BufferType.f32le,
+    bufferFrames: 8192,
+  );
+
+  // Start the real-time voice in the mixer and bind its handle
+  final handle = SoLoud.instance.play(stream.source, volume: 0.9);
+  stream.bindActiveVoice(handle);
+
+  // Generate 256 stereo frames of a 440 Hz sine wave
+  const frames = 256;
+  final pcm = Float32List(frames * 2);
+  for (var i = 0; i < frames; i++) {
+    final sample = math.sin(2.0 * math.pi * 440.0 * i / 48000.0) * 0.4;
+    pcm[i * 2] = sample;     // Left
+    pcm[i * 2 + 1] = sample; // Right
+  }
+
+  // Immediately injects into the ring buffer AND re-renders the active mixer window!
+  final writtenFrames = stream.pushFloat32(pcm);
+}
+```
+
+### Configuration Parameters
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `sampleRate` | `int` | `48000` | Sample rate of the PCM frames pushed into the stream. Match `SoLoud.instance.init(sampleRate: ...)` to bypass resampling completely. |
+| `channels` | `Channels` | `Channels.stereo` | Channel layout (`Channels.mono`, `Channels.stereo`, etc.). |
+| `format` | `BufferType` | `BufferType.f32le` | Input PCM format (`BufferType.f32le`, `BufferType.s16le`, or `BufferType.f32lePlanar`). |
+| `bufferFrames` | `int` | `2048` | Forward capacity of the lock-free ring buffer in frames (rounded up to a power of two). |
+| `historyFrames` | `int` | `4096` | Historical rewind window in frames retained for retroactive mixer re-rendering. |
+
+---
+
+## Pushing Audio Data
+
+`RealtimeStreamHandle` provides both typed-data and zero-GC native buffer push methods:
+
+### 1. Immediate Push (`pushFloat32`, `pushInt16`, `pushNativeFloat32`)
+
+```dart
+// Push interleaved (or planar if format == BufferType.f32lePlanar) Float32List
+final written = stream.pushFloat32(float32Samples);
+
+// Push interleaved Int16List (converted & de-interleaved via SIMD)
+final written16 = stream.pushInt16(int16Samples);
+
+// Zero-GC push using a pre-allocated native/WASM buffer
+final nativeBuf = stream.allocateNativeBuffer(maxFrames: 1024);
+final out = nativeBuf.float32View;
+// ... fill `out` ...
+stream.pushNativeFloat32(nativeBuf, 512);
+```
+
+### 2. Clocked Push (`pushClockedFloat32` / `pushNativeClockedFloat32`)
+
+Analogous to `SoLoud.instance.playClocked(...)`, `pushClockedFloat32` anchors rapid consecutive pushes to an app/physics clock (`soundTime`) so sub-buffer timing offsets are preserved:
+
+```dart
+final written = stream.pushClockedFloat32(
+  stopwatch.elapsed,
+  burstSamples,
+);
+```
+
+### 3. Sample-Accurate Scheduled Push (`pushScheduledFloat32` / `pushNativeScheduledFloat32`)
+
+Analogous to `SoLoud.instance.playScheduled(...)`, schedules samples at an exact engine time (`SoLoud.instance.getEngineTime()` / `getPlayheadTime()`):
+
+```dart
+final playhead = SoLoud.instance.getPlayheadTime();
+final written = stream.pushScheduledFloat32(
+  playhead + const Duration(milliseconds: 15),
+  noteSamples,
+);
+```
+
+---
+
+## Managed Background Isolate & Web Feeding (`startFeeder`)
+
+Instead of manually spawning a Dart `Isolate`, setting up `ReceivePort`/`SendPort` handshakes, allocating `RealtimeNativeBuffer`, and writing `Timer.periodic` watermark loops, use **`stream.startFeeder<TState>(...)`** (or **`stream.startInt16Feeder<TState>(...)`**):
+
+- **On Native (macOS, iOS, Android, Windows, Linux)**: Automatically spawns a dedicated background Dart `Isolate`, attaches to the lock-free C++ ring buffer, pre-allocates a zero-GC `RealtimeNativeBuffer`, and invokes your top-level `onFeed` function whenever `availableToRead < targetBufferedFrames`.
+- **On Web (`kIsWeb`)**: Automatically runs the exact same `onFeed` function on the Web event loop using a pre-allocated WASM `RealtimeNativeBuffer`—no `if (!kIsWeb)` branching required.
+- **Graceful Starvation / Pause Handling**: Your `onFeed` callback returns the number of frames actually written (`0..framesRequested`). If it returns `0` (e.g. when paused or waiting for input) or `< framesRequested`, the feeder yields until the next tick, and if the ring buffer drains, the C++ mixer smoothly applies a 64-frame raised-cosine anti-click ramp to silence.
+
+```dart
+import 'dart:math' as math;
+import 'dart:typed_data';
+import 'package:flutter_soloud/flutter_soloud.dart';
+
+final class SynthState {
+  SynthState({required this.running, required this.frequency});
+  bool running;
+  double frequency;
+  double phase = 0; // Internal DSP state preserved across parameter updates
+}
+
+void _updateSynthState(SynthState current, SynthState next) {
+  current
+    ..running = next.running
+    ..frequency = next.frequency;
+}
+
+int _generateSynthChunk(
+  Float32List out,
+  int framesRequested,
+  SynthState state,
+  void Function(Object? event) emitToUi,
+) {
+  if (!state.running) return 0; // Smoothly cosine-ramps to silence when paused
+
+  final phaseInc = 2.0 * math.pi * state.frequency / 48000.0;
+  for (var i = 0; i < framesRequested; i++) {
+    final s = math.sin(state.phase) * 0.3;
+    state.phase += phaseInc;
+    if (state.phase > 2.0 * math.pi) state.phase -= 2.0 * math.pi;
+    out[i * 2] = s;
+    out[i * 2 + 1] = s;
+  }
+  return framesRequested;
+}
+
+Future<void> runManagedSynth() async {
+  final stream = SoLoud.instance.setRealtimeStream(bufferFrames: 8192);
+  final handle = SoLoud.instance.play(stream.source);
+  stream.bindActiveVoice(handle);
+
+  final feeder = await stream.startFeeder<SynthState>(
+    initialState: SynthState(running: true, frequency: 440),
+    onFeed: _generateSynthChunk,
+    onStateUpdate: _updateSynthState,
+    chunkFrames: 480, // 10 ms chunks at 48 kHz
+  );
+
+  // Update parameters from the UI at any time without resetting `phase`:
+  feeder.updateState(SynthState(running: true, frequency: 523.25));
+
+  // Clean up when done:
+  await feeder.dispose();
+}
+```
+
+---
+
+## Monitoring Buffer Health & Underruns
+
+You can inspect the live state of a `RealtimeStreamHandle` at any time without locking the audio thread:
+
+```dart
+final available = stream.availableToRead;  // Unread frames queued for playback
+final freeSpace = stream.availableToWrite; // Free frame capacity before overflow
+final underruns = stream.underrunCount;    // Cumulative underrun events
+
+// Flush all queued frames and reset underrun count
+stream.reset();
+
+// Dispose the underlying source when no longer needed
+await SoLoud.instance.disposeSource(stream.source);
+```
+
+<Success>
+**Complete Runnable Examples:**
+Check out [`example/lib/realtime_audio/realtime_pcm_synth.dart`](https://github.com/alnitak/flutter_soloud/blob/main/example/lib/realtime_audio/realtime_pcm_synth.dart) and [`example/lib/realtime_audio/isolate_drum_sequencer.dart`](https://github.com/alnitak/flutter_soloud/blob/main/example/lib/realtime_audio/isolate_drum_sequencer.dart) in the repository for complete interactive applications.
+</Success>

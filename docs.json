@@ -77,6 +77,14 @@
           "href": "/advanced/pull_buffer_streaming"
         },
         {
+          "title": "⚡ Real-Time Mixer Injection",
+          "href": "/advanced/realtime_streaming"
+        },
+        {
+          "title": "🧬 Custom DSP & Generators",
+          "href": "/advanced/custom_dsp"
+        },
+        {
           "title": "🎚️ Mixing Busses",
           "href": "/advanced/mixing_bus"
         },

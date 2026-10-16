@@ -21,9 +21,12 @@ description: Learn how to use audio effects and filters
 - `pitchShifter` - Change pitch without affecting speed [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/pitch_shift_filter.cpp#L16)
 - `compressor` - Dynamic range compression [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/compressor.cpp#L24)
 - `limiter` - Peak volume control [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/limiter.cpp#L20)
+- `amplitudeModulator` - Sine ring modulator (`input * sin(2π * frequency * t)`) [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/amplitude_modulator_filter.cpp)
+- `customFilter(int id)` - User-programmable synchronous DSP filter supporting up to **8 independent instances (`id: 0..7`) per scope** with 16 modulatable parameters (`wet` + `p1`..`p15`) and automatic `wet = 0` hard bypass. See [Custom DSP & Audio Generators](/advanced/custom_dsp).
 
 <Info>
 - *freeverb* supports only 2 channels. When using *freeverb* as a global filter, the engine should be initialized using the default 2 channels, and when using it as a sound filter it must be applied to 2-channel sounds.
+- Each scope (Global, Mixing Bus, or Single Sound) supports up to 8 active filters simultaneously (`FILTERS_PER_STREAM = 8`). Built-in filters allow one instance per `FilterType`, while `customFilter(0)` through `customFilter(7)` allow up to 8 custom filters on the same scope.
 </Info>
 
 ## Global Filters
