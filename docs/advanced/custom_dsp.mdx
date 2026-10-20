@@ -240,3 +240,10 @@ globalThis.myOverdriveFilter = function(
 **Interactive Example:**
 See [`example/lib/realtime_audio/custom_dsp_workbench.dart`](https://github.com/alnitak/flutter_soloud/blob/main/example/lib/realtime_audio/custom_dsp_workbench.dart) for a full workbench combining `createCustomSource` with two chained `customFilter` slots (`customFilter(0)` and `customFilter(1)`), live parameter sliders, LFO oscillation, and wet=0 hard bypass.
 </Success>
+
+---
+
+## Hosting External Desktop VST3 Plugins
+
+On **macOS**, **Windows**, and **Linux**, `flutter_soloud` includes a turnkey **VST3 Plugin Host** built directly on top of `CustomFilterSlot` and `CustomAudioSource`. See [VST3 Plugin Hosting](/advanced/vst3_hosting) to learn how to load `.vst3` effects (`Fx`) and virtual instruments (`Instrument|Synth`), open native plugin GUI windows, and automate VST3 parameters.
+

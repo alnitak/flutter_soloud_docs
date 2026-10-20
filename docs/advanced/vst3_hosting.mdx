@@ -1,0 +1,302 @@
+---
+title: VST3 Plugin Hosting
+description: Host external 64-bit native .vst3 audio effects and virtual instruments on macOS, Windows, and Linux
+---
+
+`flutter_soloud` includes an opt-in desktop **VST3 Plugin Host** (`Vst3Host`, `Vst3EffectPlugin`, and `Vst3InstrumentPlugin`) built on top of SoLoud's synchronous [Custom DSP & Generators](/advanced/custom_dsp) architecture (`CustomFilterSlot` and `CustomAudioSource`).
+
+With VST3 hosting enabled on **macOS**, **Windows**, and **Linux**, your Flutter desktop app can:
+
+- Scan `.vst3` bundles and inspect exported effect (`Fx`) and virtual instrument (`Instrument|Synth`) classes.
+- Attach up to **8 independent VST3 audio effects** per Global or Mixing Bus scope (`customFilters[0..7]`) with zero-latency planar 32-bit float processing and automatic dry/wet blending or hard bypass (`wet == 0.0`).
+- Play **VST3 virtual instruments** (`Vst3InstrumentPlugin`) as standard or 3D spatialized SoLoud voices (`play` / `play3d`) and trigger real-time MIDI notes (`noteOn`, `noteOff`) over a lock-free SPSC event queue.
+- Open the plugin's **native desktop GUI editor window** (`NSWindow` on macOS, `HWND` on Windows, `X11 Window` on Linux) and receive live parameter edit notifications (`onGuiParameterChanged`) when the user turns knobs in the native plugin UI.
+- Automate any VST3 parameter on the C++ audio thread using `fadeFilterParameter()` and `oscillateFilterParameter()` via `mapToSlotParameter()`.
+- Save and restore binary preset chunks (`saveState()` / `restoreState()`).
+
+<Warning>
+**Desktop-Only & Opt-In Licensing:**
+- **Platform Support:** VST3 hosting is supported exclusively on **macOS** (`x86_64` + `arm64` Universal), **Windows** (`x64` + `arm64`), and **Linux** (`x64` + `arm64`). On Android, iOS, and Web, `Vst3Host().isSupported` returns `false`.
+- **Licensing:** By default (`enable_vst3: false`), `flutter_soloud` is 100% **MIT / Zlib** licensed and does not download or link any Steinberg code. Setting `enable_vst3: true` downloads and links the prebuilt **Steinberg VST3 Hosting SDK** from [`flutter_soloud_prebuilds`](https://github.com/alnitak/flutter_soloud_prebuilds), which is dual-licensed by Steinberg under the **Steinberg VST3 License** (proprietary) or **GPLv3**. Ensure your application complies with Steinberg's VST3 licensing terms when distributing builds with `enable_vst3: true`.
+</Warning>
+
+---
+
+## 1. Setup & Configuration
+
+### Enable VST3 in `pubspec.yaml`
+
+In your application's `pubspec.yaml`, opt in to the prebuilt VST3 bridge under `hooks.user_defines.flutter_soloud`:
+
+```yaml
+hooks:
+  user_defines:
+    flutter_soloud:
+      enable_vst3: true # Default is false
+```
+
+On the next desktop build, `flutter_soloud`'s Dart Native Assets build hook (`hook/build.dart`) automatically downloads and caches `vst3-include.tar.gz` and the platform archive (`vst3-macos.tar.gz`, `vst3-windows-x64.zip`, `vst3-windows-arm64.zip`, `vst3-linux-x64.tar.gz`, or `vst3-linux-arm64.tar.gz`) into `.dart_tool/flutter_soloud/vst3/prebuild/`.
+
+<Info>
+Just like the Xiph prebuilds, you can optionally pin a specific release tag from [`flutter_soloud_prebuilds`](https://github.com/alnitak/flutter_soloud_prebuilds) using `prebuild_tag: 'v1.0.1'` under `hooks.user_defines.flutter_soloud`.
+</Info>
+
+### macOS Entitlements & `Documents` Folder Permissions
+
+1. **Disable Library Validation & App Sandbox (`macos/Runner/*.entitlements`)**:
+   Loading external third-party `.vst3` bundles signed by other developers (and allowing plugins to access system/user preset folders like `/Library/Application Support/` and `~/Documents/`) requires disabling library validation and the App Sandbox in both `macos/Runner/DebugProfile.entitlements` and `macos/Runner/Release.entitlements`:
+
+   ```xml
+   <key>com.apple.security.app-sandbox</key>
+   <false/>
+   <key>com.apple.security.cs.disable-library-validation</key>
+   <true/>
+   ```
+
+2. **Allow `~/Documents` Preset Folder Access (`macos/Runner/Info.plist` & TCC)**:
+   Many desktop VST3 plugins (such as **Surge XT**, **Vital**, and **Kontakt**) read and create user patch directories inside `~/Documents/<PluginName>` on initialization. Because macOS protects `~/Documents` with TCC (Transparency, Consent, and Control):
+   - Add `NSDocumentsFolderUsageDescription` to `macos/Runner/Info.plist`:
+     ```xml
+     <key>NSDocumentsFolderUsageDescription</key>
+     <string>Audio plugins read and save user presets in your Documents folder.</string>
+     ```
+   - If a plugin shows `Operation not permitted` for `~/Documents/...`, open **System Settings → Privacy & Security → Files and Folders** and enable **Documents Folder** for your Flutter app (or for the IDE/Terminal launching `flutter run` / `flutter test`), or reset the cached TCC prompt via:
+     ```bash
+     tccutil reset SystemPolicyDocumentsFolder com.yourcompany.yourapp
+     ```
+
+### Linux Desktop Backend (X11 & `GDK_BACKEND`)
+
+The standard VST3 windowing protocol on Linux requires the **X11** desktop backend (`Steinberg::kPlatformTypeX11EmbedWindowID`). On Linux desktop environments running Wayland by default (e.g. Ubuntu 22.04+, Fedora, Debian), the Flutter GTK embedding defaults to Wayland, which prevents native VST3 plugin editor windows from attaching or being displayed.
+
+To ensure native VST3 plugin editor GUIs display correctly on Linux, run your Flutter application with the `GDK_BACKEND=x11` environment variable:
+
+```bash
+GDK_BACKEND=x11 flutter run -d linux
+```
+
+<Warning>
+If `GDK_BACKEND=x11` is omitted on Linux, audio DSP, MIDI processing, and parameter automation will continue to work normally, but native plugin GUI editor windows will fail to attach or remain blank.
+</Warning>
+
+---
+
+## 2. Scanning `.vst3` Bundles
+
+Use `Vst3Host` to check platform support, list standard OS VST3 directories, and inspect all processor classes inside a `.vst3` bundle:
+
+```dart
+import 'package:flutter_soloud/flutter_soloud.dart';
+
+void scanPlugins() {
+  final vstHost = Vst3Host();
+  if (!vstHost.isSupported) {
+    print('VST3 hosting is not enabled or not supported on this platform.');
+    return;
+  }
+
+  print('Standard OS search paths: ${vstHost.standardSearchPaths}');
+
+  const bundlePath = '/Library/Audio/Plug-Ins/VST3/Surge XT Effects.vst3';
+  final classes = vstHost.scanBundle(bundlePath);
+
+  for (final info in classes) {
+    print(
+      '${info.name} '
+      '[UID: ${info.classUid}, SubCategories: ${info.subCategories}, '
+      'isEffect: ${info.isEffect}, isInstrument: ${info.isInstrument}]',
+    );
+  }
+}
+```
+
+---
+
+## 3. Hosting a VST3 Audio Effect (`Vst3EffectPlugin`)
+
+A VST3 audio effect (`Fx`) attaches to any Global or Mixing Bus `CustomFilterSlot` (`soloud.filters.customFilters[0..7]` or `bus.filters.customFilters[0..7]`).
+
+```dart
+import 'package:flutter_soloud/flutter_soloud.dart';
+
+Future<void> hostVst3Effect() async {
+  final soloud = SoLoud.instance;
+  await soloud.init(sampleRate: 48000, bufferSize: 512);
+
+  final vstHost = Vst3Host();
+  if (!vstHost.isSupported) return;
+
+  const bundlePath = '/Library/Audio/Plug-Ins/VST3/Surge XT Effects.vst3';
+  final classes = vstHost.scanBundle(bundlePath);
+
+  // Attach the VST3 effect to Global CustomFilterSlot 0
+  final slot0 = soloud.filters.customFilters[0];
+  final effect = vstHost.loadEffect(
+    bundlePath: bundlePath,
+    classUid: classes.first.classUid,
+    slot: slot0,
+  );
+
+  // Sync musical tempo & transport state with the plugin's ProcessContext
+  effect.setTransport(bpm: 124.0, isPlaying: true);
+
+  // Inspect all exposed VST3 parameters
+  for (final p in effect.parameters) {
+    final formatted = effect.getParameterDisplay(p.paramId);
+    print('[${p.paramId}] ${p.title}: $formatted ${p.units}');
+  }
+
+  // Set a VST3 parameter directly (normalized 0.0..1.0)
+  if (effect.parameters.isNotEmpty) {
+    final firstParam = effect.parameters.first;
+    effect.setParameterNormalized(firstParam.paramId, 0.75);
+  }
+
+  // Control dry/wet mix (or set 0.0 for zero-CPU hard bypass)
+  slot0.wet.value = 0.8;
+
+  // Later, when finished with the plugin:
+  // effect.dispose();
+}
+```
+
+<Warning>
+**Global or Mixing Bus Scope Only:**
+VST3 effect instances hold stateful C++ delay lines, reverb tails, and editor controllers that belong to a single signal chain. Therefore, `Vst3Host.loadEffect` requires a **Global** (`SoLoud.instance.filters.customFilters[i]`) or **Mixing Bus** (`bus.filters.customFilters[i]`) slot, and throws an `ArgumentError` if given a single-sound filter slot. To process a specific set of voices through a VST3 effect, route those voices through a [Mixing Bus](/advanced/mixing_bus).
+</Warning>
+
+### Sample-Accurate Parameter Fades & LFO Oscillation
+
+Each `CustomFilterSlot` has 15 modulatable user parameters (`param[1]..param[15]`). You can map any 32-bit VST3 `ParamID` to one of those slot parameters using `mapToSlotParameter()` to drive the VST3 parameter with SoLoud's built-in C++ `Fader` and LFO engine:
+
+```dart
+// Map a VST3 parameter to CustomFilterSlot param[1]
+final targetParam = effect.parameters.first;
+final slotParam = effect.mapToSlotParameter(
+  slotParamIndex: 1,
+  vst3ParamId: targetParam.paramId,
+);
+
+// Smoothly ramp the VST3 parameter to 0.85 over 3 seconds on the audio thread
+slotParam.fadeFilterParameter(
+  to: 0.85,
+  time: const Duration(seconds: 3),
+);
+
+// Or oscillate the VST3 parameter with a sine LFO
+slotParam.oscillateFilterParameter(
+  from: 0.2,
+  to: 0.9,
+  time: const Duration(milliseconds: 1500),
+);
+```
+
+---
+
+## 4. Hosting a VST3 Virtual Instrument (`Vst3InstrumentPlugin`)
+
+A VST3 instrument (`Instrument|Synth`) wraps a `CustomAudioSource` (`synth.audioSource`) that you can play with `soloud.play()` or position in 3D space with `soloud.play3d()`:
+
+```dart
+import 'package:flutter_soloud/flutter_soloud.dart';
+
+Future<void> hostVst3Instrument() async {
+  final soloud = SoLoud.instance;
+  await soloud.init(sampleRate: 48000, bufferSize: 512);
+
+  final vstHost = Vst3Host();
+  if (!vstHost.isSupported) return;
+
+  final synth = vstHost.loadInstrument(
+    bundlePath: '/Library/Audio/Plug-Ins/VST3/Surge XT.vst3',
+  );
+
+  // Play the VST3 synth as a 3D spatialized voice in SoLoud
+  final voice = soloud.play3d(synth.audioSource, 2.0, 0.0, -1.0);
+
+  // Trigger a C minor triad via the lock-free MIDI event queue
+  synth.noteOn(pitch: 60, velocity: 0.85); // C4
+  synth.noteOn(pitch: 63, velocity: 0.80); // Eb4
+  synth.noteOn(pitch: 67, velocity: 0.80); // G4
+
+  await Future<void>.delayed(const Duration(seconds: 2));
+
+  synth.noteOff(pitch: 60);
+  synth.noteOff(pitch: 63);
+  synth.noteOff(pitch: 67);
+
+  // Clean up when done:
+  await soloud.stop(voice);
+  synth.dispose();
+}
+```
+
+---
+
+## 5. Opening Native Desktop Editor Windows (`IPlugView`)
+
+Most commercial and open-source VST3 plugins provide a custom graphical user interface (`Steinberg::IPlugView`). Both `Vst3EffectPlugin` and `Vst3InstrumentPlugin` can host the plugin's native editor inside a dedicated top-level OS window (`NSWindow` on macOS, `HWND` on Windows, `X11 Window` on Linux) while bidirectional parameter edits stay synchronized with Dart and the C++ audio thread:
+
+```dart
+// Check if the plugin implements IPlugView
+if (effect.hasEditor) {
+  effect.openEditorWindow(title: 'Surge XT Effects');
+}
+
+// Listen to knob turns made by the user inside the native VST3 GUI
+final sub = effect.onGuiParameterChanged.listen((edit) {
+  final display = effect.getParameterDisplay(edit.paramId);
+  print('GUI edited param ${edit.paramId} -> $display (${edit.normalizedValue})');
+});
+
+// Programmatically close the native editor window when needed
+// effect.closeEditorWindow();
+```
+
+<Info>
+**Linux Requirement:** The VST3 windowing protocol standard on Linux requires X11. Always launch your Flutter application with `GDK_BACKEND=x11` (e.g. `GDK_BACKEND=x11 flutter run -d linux`) so native plugin GUI editor windows can be displayed.
+</Info>
+
+---
+
+## 6. Saving & Restoring Plugin Presets
+
+You can serialize both the `IComponent` processor state and `IEditController` state into a single `Uint8List` blob and restore it later:
+
+```dart
+// Save current preset/state chunk
+final Uint8List presetBlob = effect.saveState();
+
+// Restore preset/state chunk
+effect.restoreState(presetBlob);
+```
+
+---
+
+## 7. Dynamic Parameters & Component Restarts (`onRestartComponent`)
+
+Some VST3 plugins—particularly multi-effects (like Surge XT Effects, guitar amp modelers, or multi-FX racks)—dynamically alter their parameter list, parameter counts, and parameter titles at runtime when the user selects a different sub-effect or module from a dropdown menu.
+
+When a plugin switches modules or updates its parameter schema, it notifies the host via Steinberg's `IComponentHandler::restartComponent`. `flutter_soloud` automatically re-queries parameter metadata and emits a `Vst3RestartComponentEvent`:
+
+```dart
+// Listen to dynamic parameter updates and component restarts
+final restartSub = effect.onRestartComponent.listen((event) {
+  if (event.hasParamTitlesChanged) {
+    print('Parameter list updated: ${effect.parameters.length} parameters now available');
+    // Call setState(() {}) in your Flutter widget to rebuild sliders
+  }
+});
+
+// You can also manually re-query the VST3 controller on demand
+final updatedParams = effect.refreshParameters();
+```
+
+<Info>
+`Vst3PluginBase` automatically calls `refreshParameters()` internally when receiving `onRestartComponent`. Subscribing to `plugin.onRestartComponent` allows your Flutter UI to trigger `setState(() {})` and display the new parameter sliders and titles immediately.
+</Info>
+
+<Success>
+**Interactive Example:**
+Check out [`example/lib/realtime_audio/vst3_plugin_rack.dart`](https://github.com/alnitak/flutter_soloud/blob/main/example/lib/realtime_audio/vst3_plugin_rack.dart) for a complete desktop VST3 effect & virtual instrument rack with bundle scanning, native GUI window launching, live parameter sliders, C++ fader automation, preset save/restore, and an interactive MIDI keyboard.
+</Success>

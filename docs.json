@@ -85,6 +85,10 @@
           "href": "/advanced/custom_dsp"
         },
         {
+          "title": "🔌 VST3 Plugin Hosting",
+          "href": "/advanced/vst3_hosting"
+        },
+        {
           "title": "🎚️ Mixing Busses",
           "href": "/advanced/mixing_bus"
         },

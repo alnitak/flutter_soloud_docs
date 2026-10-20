@@ -10,7 +10,7 @@ While [Audio Streaming (`/advanced/streaming`)](/advanced/streaming) (`setBuffer
 - **Lock-Free SPSC Planar Ring Buffer (`RealtimeRingBuffer`)**: Pre-allocated single-producer single-consumer atomic ring buffer with `std::memory_order_acquire` / `std::memory_order_release` semantics, SIMD stereo de-interleaving (`NEON` / `SSE`), and zero heap allocations on the audio thread.
 - **Instantaneous Playing-Window Mixer Injection**: Like `playClocked` and `playScheduled`, pushing samples via `pushFloat32`, `pushInt16`, `pushClockedFloat32`, `pushScheduledFloat32`, or `pushNativeFloat32` immediately rewinds and re-renders the active native lookahead mixer ring (`mRenderRing`) so newly pushed audio appears in the **currently playing hardware window**.
 - **Anti-Click Raised-Cosine Underrun Recovery**: If a real-time stream runs out of frames (or your feeder callback returns `0` frames while paused), the C++ mixer smoothly decays the last sample over a 64-frame raised-cosine ramp (`~1.3 ms`) into silence (`0.0`) without speaker clicks, keeping the voice alive until new audio arrives.
-- **Managed Isolate & Web Feeder (`RealtimeStreamFeeder`)**: Call `stream.startFeeder<TState>(...)` to automatically spawn a background Dart `Isolate` on native platforms (with zero `SendPort`/`ReceivePort` or buffer management boilerplate) and automatically fall back to a zero-GC timer loop on Web (`kIsWeb`).
+- **Managed Isolate & Web Feeder (`RealtimeStreamFeeder`)**: Call `stream.startFloat32Feeder<TState>(...)` to automatically spawn a background Dart `Isolate` on native platforms (with zero `SendPort`/`ReceivePort` or buffer management boilerplate) and automatically fall back to a zero-GC timer loop on Web (`kIsWeb`).
 
 <Info>
 **Choosing the Right Streaming API:**
@@ -170,7 +170,7 @@ Future<void> runManagedSynth() async {
   final handle = SoLoud.instance.play(stream.source);
   stream.bindActiveVoice(handle);
 
-  final feeder = await stream.startFeeder<SynthState>(
+  final feeder = await stream.startFloat32Feeder<SynthState>(
     initialState: SynthState(running: true, frequency: 440),
     onFeed: _generateSynthChunk,
     onStateUpdate: _updateSynthState,

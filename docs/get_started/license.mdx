@@ -35,6 +35,11 @@ For detailed information about SoLoud's license, visit [SoLoud Legal Information
 
 Some modules include their own licenses:
 - OGG/Opus/Vorbis/FLAC support: BSD-style license
+- **Desktop VST3 Plugin Hosting (Opt-In, `enable_vst3: true`)**: Disabled by default (`enable_vst3: false`). When explicitly enabled on macOS, Windows, or Linux, the build hook downloads and links the prebuilt **Steinberg VST3 Hosting SDK**, which is dual-licensed by Steinberg Media Technologies GmbH under the **Steinberg VST3 License** (proprietary) or **GPLv3**.
+
+<Info>
+When `enable_vst3` is left at its default (`false`), no Steinberg code or headers are downloaded or linked, and `flutter_soloud` remains 100% covered by the MIT, ZLib/LibPNG, and BSD-style licenses above.
+</Info>
 
 ## Usage Requirements
 
@@ -42,3 +47,4 @@ When using flutter_soloud in your project:
 
 1. Include the MIT license notice for the Flutter plugin
 2. Maintain the ZLib/LibPNG license for SoLoud
+3. If you enable `enable_vst3: true` on desktop, comply with Steinberg's VST3 SDK licensing terms (GPLv3 or the proprietary Steinberg VST3 License).
