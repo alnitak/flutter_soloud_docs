@@ -26,6 +26,28 @@ While [Audio Streaming (`/advanced/streaming`)](/advanced/streaming) (`setBuffer
 
 ---
 
+## Low-Latency Mixer Configuration: Direct Buffer vs. Retroactive Lookahead
+
+When developing with real-time audio, choosing the right buffer strategy in `SoLoud.instance.init(...)` is essential for achieving optimal responsiveness and audio stability:
+
+| Feature | Standard Low-Latency Mode (`bufferSize: 256` or `512`) | Retroactive Lookahead Mode (`renderAheadFrames: 4096`) |
+| :--- | :--- | :--- |
+| **Best Suited For** | Simple synchronous sources or platforms where the OS grants small native hardware buffer periods. | Interactive sequencers, drum machines, synthesizers, and games needing large CPU headroom with low latency. |
+| **How It Operates** | The audio mixer quantum is tied directly to the OS driver period (`deviceConfig.periodSizeInFrames = bufferSize`). | Decouples the mixer quantum (4096 frames) from the OS device callback (`devicePeriodFrames: 256`). |
+| **End-to-End Latency** | Dependent on the OS audio server's negotiated driver period (may default to larger buffers on desktop OSs). | **~5–10 ms** perceived latency: newly pushed frames are spliced directly at the active playhead! |
+| **Mixing Buses** | Fully supported in real time with zero extra configuration. | Fully supported (snapshots bus state during retroactive re-mixing). |
+| **Audio Filters** | All filters (Freeverb, Compressor, Biquad, Custom DSP) run smoothly in real time. | Filters run in real time; un-snapshotted filters continue filtering smoothly in best-effort mode. |
+| **Recommended Parameters** | `bufferSize: 256` or `512`, `chunkFrames: 128`, `targetBufferedFrames: 256` | `bufferSize: 4096`, `renderAheadFrames: 4096`, `devicePeriodFrames: 256` |
+
+<Info>
+**Understanding Retroactive Lookahead (`renderAheadFrames` + `devicePeriodFrames`):**
+When `renderAheadFrames: 4096` and `devicePeriodFrames: 256` are configured, miniaudio explicitly forces the operating system audio driver (CoreAudio on macOS/iOS, WASAPI on Windows, AAudio on Android) into small `256`-frame (`5.33 ms`) hardware callbacks. Meanwhile, the SoLoud mixer maintains `4096` frames (`85.3 ms`) of pre-rendered audio headroom in `mRenderRing`.
+
+Whenever an interactive sound event or stream push occurs, `injectIntoPlayingWindow` (and `playScheduled`) rewinds `mRenderRing` back to the active hardware playhead and rewrites the remaining frames, delivering instantaneous **~5–10 ms** touch-to-sound responsiveness without risking audio underruns!
+</Info>
+
+---
+
 ## Creating a `RealtimeStreamHandle`
 
 Call `SoLoud.instance.setRealtimeStream(...)` after initializing the engine, play its `.source`, and bind the active voice handle so pushed audio can be spliced directly into the currently playing mixer window:
