@@ -79,6 +79,26 @@ GDK_BACKEND=x11 flutter run -d linux
 If `GDK_BACKEND=x11` is omitted on Linux, audio DSP, MIDI processing, and parameter automation will continue to work normally, but native plugin GUI editor windows will fail to attach or remain blank.
 </Warning>
 
+### Recommended Settings for Minimum Latency
+
+To get the lowest possible latency when playing a VST3 instrument or running effects:
+
+```dart
+// Standard Low-Latency Setup (5.3 ms buffer latency at 48 kHz):
+await SoLoud.instance.init(
+  sampleRate: 48000,
+  bufferSize: 256,
+);
+
+// Or Retroactive Lookahead (low latency with high CPU safety margin):
+await SoLoud.instance.init(
+  sampleRate: 48000,
+  bufferSize: 4096,
+  renderAheadFrames: 4096,
+  devicePeriodFrames: 256,
+);
+```
+
 ---
 
 ## 2. Scanning `.vst3` Bundles
