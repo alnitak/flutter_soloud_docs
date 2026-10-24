@@ -57,7 +57,8 @@ The *flutter_soloud* package includes several example projects demonstrating var
 |---------|-------------|
 | `lib/realtime_audio/realtime_pcm_synth.dart` | Interactive XY pad polyphonic ADSR synthesizer using `setRealtimeStream`, `pushFloat32`, `pushClockedFloat32`, and `pushScheduledFloat32` |
 | `lib/realtime_audio/isolate_drum_sequencer.dart` | Zero-GC 4-track 16-step drum sequencer running inside `SoLoudIsolate.instance` with `RealtimeNativeBuffer` |
-| `lib/realtime_audio/custom_dsp_workbench.dart` | Synchronous `createCustomSource` audio generator chained through two multi-instance `customFilter` slots (`customFilter(0)` and `customFilter(1)`) |
+| `lib/realtime_audio/custom_dsp/` | Standalone custom DSP project with C generator and filter callbacks, Dart Native Assets `hook/build.dart`, auto-generated `ffigen` bindings, and Web `dart:js_interop` |
+| `lib/realtime_audio/vst3_plugin_rack.dart` | Desktop VST3 host rack loading `.vst3` effects and instruments with native editor GUI windows, parameter faders, and MIDI input |
 
 ## Running the Examples
 

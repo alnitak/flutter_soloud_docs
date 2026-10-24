@@ -1,249 +1,313 @@
 ---
 title: Custom DSP & Audio Generators
-description: Write synchronous zero-latency audio generators and multi-instance custom DSP filters across Native (C/C++/Rust/Dart FFI) and Web (Wasm/JS)
+description: Write synchronous zero-latency audio generators and multi-instance custom DSP filters across Native (C/C++/Rust) and Web (Wasm/JS)
 ---
 
 ## Overview
 
-For effects and instruments that require **zero ring-buffer latency** or sample-by-sample feedback loops—such as state-variable filters, Moog ladder filters, wavefolders, sidechain effects, physical modeling, or hosting external C++/Rust/FAUST/Cmajor/VST DSP blocks—*flutter_soloud* provides two synchronous callback APIs:
+For effects and instruments that require **zero ring-buffer latency** or sample-by-sample feedback loops—such as state-variable filters, wavefolders, distortion, physical modeling, custom oscillators, or integrating external C/C++/Rust DSP algorithms—*flutter_soloud* provides two synchronous callback APIs:
 
-1. **`createCustomSource` (`CustomAudioSource`)**: A custom `SoLoud::AudioSource` whose callback is invoked directly by the SoLoud mixer whenever it needs to render a block of audio samples.
-2. **`filters.customFilter(int id)` (`CustomFilter`)**: A custom `SoLoud::Filter` that processes audio in-place inside any filter chain (**Global**, **Mixing Bus**, or **Single Sound**), supporting **up to 8 independent `CustomFilter` slots (`id: 0..7`) on the same scope** and **16 modulatable parameters** (`wet` + `p1`..`p15`).
+1. **`createCustomAudioSource` (`CustomAudioSource`)**: A custom `SoLoud::AudioSource` whose callback is invoked directly by the SoLoud mixer on the real-time audio thread whenever it needs to render a block of audio samples.
+2. **`filters.customFilter(int id)` (`CustomFilterSlot`)**: A custom `SoLoud::Filter` that processes audio in-place inside any filter chain (**Global**, **Mixing Bus**, or **Single Sound**), supporting **up to 8 independent `CustomFilterSlot` instances (`id: 0..7`) on the same scope** with automatic dry/wet mixing, hard bypass, and up to 7 user-definable modulatable parameters.
 
-Both mechanisms work across all 6 supported platforms:
-- **Linux, macOS, Windows, Android, iOS**: Direct native function pointer invocation (`dart:ffi` `Pointer.fromFunction` or compiled C/C++/Rust symbol).
-- **Web (Wasm / JavaScript)**: Zero-copy Emscripten `EM_ASM` / Wasm function table invocation inside the WebAudio AudioWorklet / ScriptProcessor context (`globalThis[jsCallbackName]`).
+Both mechanisms work across all supported platforms:
+- **Android, iOS, macOS, Windows, Linux**: Native C, C++, or Rust callbacks compiled with Dart Native Assets (`hook/build.dart`) or precompiled into shared libraries, passed as raw memory addresses.
+- **Web (Wasm / JavaScript)**: JavaScript or Dart (`dart:js_interop`) functions registered on `globalThis` accessing Emscripten's `Module_soloud.HEAPF32` buffer.
 
 <Warning>
-**Real-Time Audio Thread Rules:**
-Because `CustomAudioSource` and `CustomFilter` callbacks execute **synchronously on the real-time audio thread**, your callback must **never**:
-- Allocate heap memory (`new`, `malloc`, creating Dart `List`s or closures inside the loop)
-- Acquire mutex locks (`std::mutex`)
-- Perform file/network I/O or call `print()` / `debugPrint()`
-- Perform async operations (`Future`, `Stream`)
+**Real-Time Audio Thread & Dart FFI Threading Rules:**
+SoLoud's audio rendering loop executes on a high-priority, dedicated **OS real-time audio thread** (managed by `miniaudio`).
+
+In Dart FFI:
+- `NativeCallable.isolateLocal` can **only** be invoked from the specific OS thread hosting that Dart isolate. Invoking it from the native audio thread causes the Dart VM to abort immediately.
+- `NativeCallable.listener` posts asynchronous events to the Dart event loop, meaning it cannot return synchronous audio samples before the hardware DMA deadline.
+
+Because of this, audio callbacks must be written in **native code (C, C++, Rust)** on desktop/mobile or **JavaScript / Wasm** on Web. Inside your callbacks, you must **never**:
+- Allocate heap memory (`malloc`, `free`, `new`, `delete`)
+- Acquire blocking mutexes or locks (`std::mutex`)
+- Perform file/network I/O or call logging (`printf`, `print`)
 </Warning>
 
 ---
 
-## Multi-Instance `CustomFilter` (`filters.customFilter(id)`)
+## 1. Writing the Callbacks (C / C++)
 
-Unlike built-in filters (which allow one instance per `FilterType` on a given scope), `customFilter(int id)` lets you attach up to **8 independent custom DSP filters (`id` in `0..7`)** to the same Global, Bus, or Single-Sound scope.
+### A. Custom Audio Generator (`SoLoudSourceDspCallback_t`)
 
-### Automatic 3-Branch `wet` Bypass & Blending
+Generates audio procedurally with zero ring-buffer latency:
 
-Every `CustomFilter` includes `wet` (`param[0]`, range `0.0..1.0`, default `1.0`) plus 15 user-definable parameters (`p1`..`p15`, or `param(1)`..`param(15)`).
+```c
+#include <stdint.h>
+#include <math.h>
 
-The C++ engine (`SoLoud::CustomFilterInstance::filter()`) automatically manages dry/wet mixing and CPU bypass:
-1. **`wet <= 0.0` (Hard Bypass)**: The engine returns immediately without invoking your callback (**0% CPU cost**).
-2. **`wet >= 1.0` (100% Wet, Zero-Copy)**: The engine passes `aBuffer` directly to your callback in-place with **zero memory copies**.
-3. **`0.0 < wet < 1.0` (Automatic Blend)**: The engine snapshots the dry input into a pre-allocated scratch buffer, invokes your callback in-place, and blends `dry * (1.0 - wet) + processed * wet`.
+#if defined(_WIN32)
+  #define MY_EXPORT __declspec(dllexport)
+#else
+  #define MY_EXPORT __attribute__((visibility("default")))
+#endif
+
+MY_EXPORT unsigned int myCustomSourceDspCallback(
+    float *aBuffer,
+    unsigned int aSamplesToRead,
+    unsigned int aBufferSize,
+    unsigned int aChannels,
+    float aSamplerate,
+    double aStreamTime,
+    double aStreamPosition,
+    uint32_t *aOutHasEnded,
+    void *aUserData)
+{
+    // Buffer layout is planar (de-interleaved):
+    // Channel 0: aBuffer + 0 * aBufferSize
+    // Channel 1: aBuffer + 1 * aBufferSize
+    for (unsigned int i = 0; i < aSamplesToRead; ++i) {
+        double t = aStreamPosition + (double)i / (double)aSamplerate;
+        float sampleL = 0.25f * sinf(2.0f * 3.14159265f * 220.0f * (float)t);
+        float sampleR = 0.25f * sinf(2.0f * 3.14159265f * 330.0f * (float)t);
+
+        aBuffer[i] = sampleL;
+        if (aChannels > 1) {
+            aBuffer[aBufferSize + i] = sampleR;
+        }
+    }
+
+    // Set *aOutHasEnded = 1 when playback finishes (0 keeps playing indefinitely)
+    if (aOutHasEnded != (uint32_t*)0) {
+        *aOutHasEnded = 0;
+    }
+
+    return aSamplesToRead; // Return number of rendered frames
+}
+
+// Export raw pointer address for Dart FFI
+MY_EXPORT void *getCustomSourceCallbackAddress(void) {
+    return (void*)&myCustomSourceDspCallback;
+}
+```
+
+### B. Custom DSP Filter (`SoLoudFilterDspCallback_t`)
+
+Processes audio in-place inside the filter chain:
+
+```c
+MY_EXPORT void myCustomFilterDspCallback(
+    float *aBuffer,
+    unsigned int aSamples,
+    unsigned int aBufferSize,
+    unsigned int aChannels,
+    float aSamplerate,
+    double aTime,
+    const float *aParams,
+    uint64_t aParamChangedMask,
+    unsigned int aParamCount,
+    void *aUserData)
+{
+    // aParams[0] is hardcoded as "Wet" (0.0 to 1.0) - SoLoud handles wet/dry bypass automatically.
+    // aParams[1..7] correspond to your custom parameters configured in Flutter.
+    float drive = (aParamCount > 1) ? aParams[1] : 2.5f;
+
+    for (unsigned int ch = 0; ch < aChannels; ++ch) {
+        float *dst = aBuffer + ch * aBufferSize;
+        for (unsigned int i = 0; i < aSamples; ++i) {
+            dst[i] = tanhf(dst[i] * drive); // Soft-clipping saturation
+        }
+    }
+}
+
+// Export raw pointer address for Dart FFI
+MY_EXPORT void *getCustomFilterCallbackAddress(void) {
+    return (void*)&myCustomFilterDspCallback;
+}
+```
 
 <Info>
-Because the engine handles `wet` (`param[0]`) automatically, your DSP callback should always write the **100% wet processed signal** into `buffer`.
+**Automatic 3-Branch `wet` Bypass & Blending:**
+In `CustomFilterSlot`, `param[0]` is always reserved for `Wet` (`0.0..1.0`):
+1. **`wet <= 0.0` (Hard Bypass)**: The engine returns immediately without invoking your callback (**0% CPU overhead**).
+2. **`wet >= 1.0` (100% Wet, Zero-Copy)**: The engine invokes your callback directly in-place on `aBuffer` (**zero memory copies**).
+3. **`0.0 < wet < 1.0` (Automatic Blend)**: The engine copies dry input into a scratch buffer, invokes your callback in-place, and blends `dry * (1 - wet) + processed * wet`.
+
+Your callback should always write the **100% wet processed signal** into the buffer.
 </Info>
 
-### Example: Chaining Two Custom Filters on the Global Mixer
+---
+
+## 2. Automated Compilation & FFI Bindings
+
+### Option A: Dart Native Assets (`hook/build.dart`)
+*(Recommended)*
+
+With Dart 3 Native Assets, your C/C++ code compiles automatically for macOS, iOS, Android, Windows, and Linux whenever you run `flutter run`:
+
+1. Add dependencies in `pubspec.yaml`:
+```yaml
+dependencies:
+  code_assets: ^2.0.0
+  hooks: ^2.2.0
+  native_toolchain_c: ^0.19.4 # Or native_toolchain_rust for Rust
+  flutter_soloud: ^5.3.0
+
+dev_dependencies:
+  ffigen: ^23.0.0
+```
+
+2. Create `hook/build.dart`:
+```dart
+import 'package:code_assets/code_assets.dart';
+import 'package:hooks/hooks.dart';
+import 'package:native_toolchain_c/native_toolchain_c.dart';
+
+void main(List<String> args) async {
+  await build(args, (input, output) async {
+    if (!input.config.buildCodeAssets) return;
+
+    final builder = CBuilder.library(
+      name: 'my_custom_dsp',
+      assetName: 'src/custom_dsp.c',
+      sources: ['src/custom_dsp.c'],
+      includes: ['src'],
+    );
+
+    await builder.run(input: input, output: output);
+  });
+}
+```
+
+3. Configure `package:ffigen` in `pubspec.yaml` to auto-generate bindings from `src/custom_dsp.h`:
+```yaml
+ffigen:
+  name: CustomDspBindings
+  output: 'lib/src/custom_dsp.g.dart'
+  headers:
+    entry-points:
+      - 'src/custom_dsp.h'
+  ffi-native:
+    asset-id: 'package:my_app/src/custom_dsp.c'
+```
+
+Run `dart run ffigen` to generate the bindings.
+
+### Option B: Precompiled Shared Library
+If you build via CMake or Cargo, compile to a shared library (`.dylib`, `.so`, `.dll`) and resolve function addresses with `DynamicLibrary`:
 
 ```dart
-import 'dart:ffi' as ffi;
-import 'package:flutter/foundation.dart';
-import 'package:flutter_soloud/flutter_soloud.dart';
+final dylib = DynamicLibrary.open('libcustom_dsp.dylib');
+final getFilterAddr = dylib.lookupFunction<Pointer<Void> Function(), Pointer<Void> Function()>(
+  'getCustomFilterCallbackAddress',
+);
+final int filterAddress = getFilterAddr().address;
+```
 
-/// Slot 0: Soft-Clipping Overdrive + Tremolo
-void _overdriveDspCallback(
-  ffi.Pointer<ffi.Float> buffer,
-  int samples,
-  int channels,
-  double sampleRate,
-  double time,
-  ffi.Pointer<ffi.Float> params,
-  int numParams,
-  ffi.Pointer<ffi.Void> userData,
-) {
-  final drive = params[1]; // p1
-  final total = samples * channels;
-  for (var i = 0; i < total; i++) {
-    final x = buffer[i] * drive;
-    final x2 = x * x;
-    // Fast rational tanh soft-clipper
-    buffer[i] = (x * (27.0 + x2) / (27.0 + 9.0 * x2)).clamp(-1.0, 1.0);
-  }
-}
+---
 
-/// Slot 1: Bitcrusher & Sample-Rate Decimator
-void _bitcrusherDspCallback(
-  ffi.Pointer<ffi.Float> buffer,
-  int samples,
-  int channels,
-  double sampleRate,
-  double time,
-  ffi.Pointer<ffi.Float> params,
-  int numParams,
-  ffi.Pointer<ffi.Void> userData,
-) {
-  final levels = params[1].clamp(2.0, 256.0); // p1
-  final decimate = params[2].round().clamp(1, 32); // p2
-  for (var c = 0; c < channels; c++) {
-    final chOffset = c * samples;
-    var held = 0.0;
-    for (var i = 0; i < samples; i++) {
-      if (i % decimate == 0) {
-        final s = buffer[chOffset + i];
-        held = (s * levels).roundToDouble() / levels;
-      }
-      buffer[chOffset + i] = held;
+## 3. Web Support (`dart:js_interop`)
+
+On Web (Wasm), register your callbacks on `globalThis` using `dart:js_interop`:
+
+```dart
+import 'dart:js_interop';
+
+@JS('globalThis')
+external JSObject get _globalThis;
+
+@JS('Module_soloud.HEAPF32')
+external JSFloat32Array get _heapF32;
+
+void registerWebCallbacks() {
+  _globalThis['customDspSynth'] = ((
+    JSNumber bufferPtr,
+    JSNumber samplesToRead,
+    JSNumber bufferSize,
+    JSNumber channels,
+    JSNumber sampleRate,
+    JSNumber streamTime,
+    JSNumber streamPosition,
+    JSNumber outHasEndedPtr,
+    JSAny? userData,
+  ) {
+    final int count = samplesToRead.toDartInt;
+    final int f32Offset = bufferPtr.toDartInt >> 2;
+
+    for (int i = 0; i < count; i++) {
+      _heapF32[f32Offset + i] = 0.25.toJS;
     }
-  }
-}
-
-void setupCustomFilterChain() {
-  final slot0 = SoLoud.instance.filters.customFilter(0);
-  slot0.defineParam(1, name: 'Drive', min: 1.0, max: 10.0, def: 2.5);
-
-  final slot1 = SoLoud.instance.filters.customFilter(1);
-  slot1
-    ..defineParam(1, name: 'QuantLevels', min: 2.0, max: 64.0, def: 16.0)
-    ..defineParam(2, name: 'Decimate', min: 1.0, max: 24.0, def: 4.0);
-
-  if (kIsWeb) {
-    slot0.setCallback(jsCallbackName: 'myOverdriveFilter');
-    slot1.setCallback(jsCallbackName: 'myBitcrusherFilter');
-  } else {
-    slot0.setCallback(
-      nativeCallback: ffi.Pointer.fromFunction<NativeCustomFilterDspCallback>(
-        _overdriveDspCallback,
-      ),
-    );
-    slot1.setCallback(
-      nativeCallback: ffi.Pointer.fromFunction<NativeCustomFilterDspCallback>(
-        _bitcrusherDspCallback,
-      ),
-    );
-  }
-
-  // Activate both slots in series on the global output bus
-  slot0.activate();
-  slot1.activate();
-
-  // Live parameter control, fading, and LFO oscillation work out of the box!
-  slot0.p1.value = 4.0;
-  slot0.p1.oscillateFilterParameter(
-    from: 1.5,
-    to: 7.0,
-    time: const Duration(milliseconds: 1500),
-  );
-
-  // Set wet to 0.0 to hard-bypass slot 1 with zero CPU overhead
-  slot1.wet.value = 0.0;
+    return samplesToRead;
+  }).toJS;
 }
 ```
 
 ---
 
-## Custom Audio Generator (`createCustomSource`)
+## 4. Using in Flutter / Dart
 
-`SoLoud.instance.createCustomSource(...)` creates a regular `AudioSource` backed by your synchronous generator callback. Because it is a full `AudioSource`, you can:
-- Play multiple polyphonic instances (`play`, `play3d`, `playClocked`, `playScheduled`)
-- Route it through Mixing Buses (`bus.play(customSource)`)
-- Attach per-sound filters (`customSource.filters.echoFilter.activate()`, `customSource.filters.customFilter(0).activate()`)
-
-### Example: Custom Audio Generator
+### Creating & Playing a Custom Audio Source
 
 ```dart
-import 'dart:ffi' as ffi;
-import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_soloud/flutter_soloud.dart';
+import 'src/custom_dsp.g.dart' as bindings;
 
-double _oscPhase = 0;
+Future<void> playCustomSound() async {
+  final soloud = SoLoud.instance;
 
-int _customSynthCallback(
-  ffi.Pointer<ffi.Float> buffer,
-  int samplesToRead,
-  int bufferSize,
-  int channels,
-  double sampleRate,
-  ffi.Pointer<ffi.Void> userData,
-) {
-  final phaseInc = 2.0 * math.pi * 220.0 / sampleRate;
-  for (var i = 0; i < samplesToRead; i++) {
-    final s = math.sin(_oscPhase) * 0.35;
-    _oscPhase += phaseInc;
-    if (_oscPhase > 2.0 * math.pi) _oscPhase -= 2.0 * math.pi;
-
-    // Planar layout: channel `c` starts at `c * bufferSize`
-    for (var c = 0; c < channels; c++) {
-      buffer[c * bufferSize + i] = s;
-    }
-  }
-  return samplesToRead;
-}
-
-void playCustomGenerator() {
-  final source = SoLoud.instance.createCustomSource(
-    channels: Channels.stereo,
+  final source = soloud.createCustomAudioSource(
     sampleRate: 48000,
-    hasEnded: false,
-    jsAudioCallbackName: kIsWeb ? 'myCustomSynthGenerator' : null,
-    nativeAudioCallback: kIsWeb
-        ? null
-        : ffi.Pointer.fromFunction<NativeCustomSourceAudioCallback>(
-            _customSynthCallback,
-            0,
-          ),
+    channels: Channels.stereo,
+    dspCallbackAddress: kIsWeb ? 0 : bindings.getCustomSourceCallbackAddress().address,
+    webJsFunctionName: kIsWeb ? 'customDspSynth' : null,
   );
 
-  final handle = SoLoud.instance.play(source);
+  final handle = soloud.play(source, volume: 0.8);
+
+  // When finished:
+  // soloud.disposeSource(source);
 }
 ```
 
-<Info>
-**Planar Buffer Layout:**
-Inside both `NativeCustomSourceAudioCallback` and `NativeCustomFilterDspCallback`, SoLoud stores audio in **planar** format:
-- In `NativeCustomFilterDspCallback`, channel `c` (`0 <= c < channels`) occupies `buffer[c * samples + i]`.
-- In `NativeCustomSourceAudioCallback`, channel `c` occupies `buffer[c * bufferSize + i]` for `0 <= i < samplesToRead`.
-</Info>
+### Configuring a Custom Filter Slot
 
----
+Attach up to **8 independent custom filter slots (`0..7`)** to any scope (Global, Mixing Bus, or Single Sound):
 
-## Web Platform (`jsCallbackName`)
+```dart
+Future<void> setupCustomFilter() async {
+  final slot0 = SoLoud.instance.filters.customFilter(0)
+    // 1. Configure up to 7 user parameters (index 0 is reserved for 'Wet')
+    ..configureParameters(const [
+      CustomFilterParamSpec(
+        name: 'Drive',
+        min: 1.0,
+        max: 20.0,
+        defaultValue: 2.5,
+      ),
+    ])
+    // 2. Activate the slot
+    ..activate()
+    // 3. Attach native callback address or Web JS function name
+    ..setNativeCallback(
+      callbackAddress: kIsWeb ? 0 : bindings.getCustomFilterCallbackAddress().address,
+      webJsFunctionName: kIsWeb ? 'customDspFilter' : null,
+    );
 
-On the Web platform, `flutter_soloud` compiles the C++ engine to WebAssembly via Emscripten (`Module_soloud`). When you register a `jsCallbackName` on a `CustomFilter` or `CustomAudioSource`, the C++ engine invokes `globalThis[jsCallbackName]` directly inside the Wasm audio rendering loop using inlined `EM_ASM` macros:
+  // 4. Modulate parameters live:
+  slot0.wet.value = 1.0;
+  slot0.param(1, min: 1.0, max: 20.0).value = 4.0;
 
-```javascript
-// In your web/index.html or via dart:js_interop:
-globalThis.myOverdriveFilter = function(
-  bufferPtr,
-  samples,
-  channels,
-  sampleRate,
-  time,
-  paramsPtr,
-  numParams,
-  userDataPtr
-) {
-  const heap = Module_soloud.HEAPF32;
-  const paramBase = paramsPtr >> 2;
-  const drive = heap[paramBase + 1]; // p1
-  const bufBase = bufferPtr >> 2;
-  const total = samples * channels;
-
-  for (let i = 0; i < total; i++) {
-    const x = heap[bufBase + i] * drive;
-    const x2 = x * x;
-    heap[bufBase + i] = Math.max(-1.0, Math.min(1.0, (x * (27.0 + x2)) / (27.0 + 9.0 * x2)));
-  }
-};
+  // Fade or oscillate parameter values:
+  slot0.param(1).fadeFilterParameter(
+    to: 12.0,
+    time: const Duration(seconds: 3),
+  );
+}
 ```
 
 <Success>
-**Interactive Example:**
-See [`example/lib/realtime_audio/custom_dsp_workbench.dart`](https://github.com/alnitak/flutter_soloud/blob/main/example/lib/realtime_audio/custom_dsp_workbench.dart) for a full workbench combining `createCustomSource` with two chained `customFilter` slots (`customFilter(0)` and `customFilter(1)`), live parameter sliders, LFO oscillation, and wet=0 hard bypass.
+**Complete Standalone Example Project:**
+A complete, runnable Flutter desktop and web project demonstrating this full workflow (with C callbacks, `hook/build.dart`, `ffigen`, and `dart:js_interop`) is available in the plugin repository at:
+[`example/lib/realtime_audio/custom_dsp/`](https://github.com/alnitak/flutter_soloud/tree/main/example/lib/realtime_audio/custom_dsp)
 </Success>
 
 ---
 
 ## Hosting External Desktop VST3 Plugins
 
-On **macOS**, **Windows**, and **Linux**, `flutter_soloud` includes a turnkey **VST3 Plugin Host** built directly on top of `CustomFilterSlot` and `CustomAudioSource`. See [VST3 Plugin Hosting](/advanced/vst3_hosting) to learn how to load `.vst3` effects (`Fx`) and virtual instruments (`Instrument|Synth`), open native plugin GUI windows, and automate VST3 parameters.
-
+On **macOS**, **Windows**, and **Linux**, `flutter_soloud` also includes an opt-in **VST3 Plugin Host** built directly on top of `CustomFilterSlot` and `CustomAudioSource`. See [VST3 Plugin Hosting](/advanced/vst3_hosting) to learn how to load `.vst3` effects (`Fx`) and virtual instruments (`Instrument|Synth`), open native plugin GUI windows, and automate VST3 parameters.

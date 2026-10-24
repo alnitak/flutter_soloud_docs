@@ -22,7 +22,7 @@ description: Learn how to use audio effects and filters
 - `compressor` - Dynamic range compression [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/compressor.cpp#L24)
 - `limiter` - Peak volume control [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/limiter.cpp#L20)
 - `amplitudeModulator` - Sine ring modulator (`input * sin(2π * frequency * t)`) [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/amplitude_modulator_filter.cpp)
-- `customFilter(int id)` - User-programmable synchronous DSP filter supporting up to **8 independent instances (`id: 0..7`) per scope** with 16 modulatable parameters (`wet` + `p1`..`p15`) and automatic `wet = 0` hard bypass. See [Custom DSP & Audio Generators](/advanced/custom_dsp).
+- `customFilter(int id)` - User-programmable synchronous DSP filter supporting up to **8 independent instances (`id: 0..7`) per scope** with `wet` (`param[0]`) and up to 7 user parameters (`param(1)`..`param(7)`) configured with `CustomFilterParamSpec`, and automatic `wet = 0` hard bypass. See [Custom DSP & Audio Generators](/advanced/custom_dsp).
 
 <Info>
 - *freeverb* supports only 2 channels. When using *freeverb* as a global filter, the engine should be initialized using the default 2 channels, and when using it as a sound filter it must be applied to 2-channel sounds.
