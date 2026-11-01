@@ -21,7 +21,7 @@ description: Learn how to use audio effects and filters
 - `pitchShifter` - Change pitch without affecting speed [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/pitch_shift_filter.cpp#L16)
 - `compressor` - Dynamic range compression [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/compressor.cpp#L24)
 - `limiter` - Peak volume control [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/limiter.cpp#L20)
-- `amplitudeModulator` - Sine ring modulator (`input * sin(2π * frequency * t)`) [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/amplitude_modulator_filter.cpp)
+- `amplitudeModulator` - Multi-waveform ring modulator / amplitude modulator (`input * carrier(2π * frequency * t)` with Sine, Triangle, Square, and Saw waveforms) [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/amplitude_modulator_filter.cpp)
 - `customFilter(int id)` - User-programmable synchronous DSP filter supporting up to **8 independent instances (`id: 0..7`) per scope** with `wet` (`param[0]`) and up to 7 user parameters (`param(1)`..`param(7)`) configured with `CustomFilterParamSpec`, and automatic `wet = 0` hard bypass. See [Custom DSP & Audio Generators](/advanced/custom_dsp).
 
 <Info>
