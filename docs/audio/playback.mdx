@@ -321,7 +321,7 @@ await SoLoud.instance.init(
 );
 ```
 
-### Render-Ahead Inspection APIs
+### Latency & Clock Inspection APIs
 
 ```dart
 // Check if the ring buffer is enabled
@@ -331,10 +331,28 @@ final isEnabled = SoLoud.instance.isRenderAheadEnabled;
 // Equals getEngineTime() when the render-ahead ring is disabled or on web.
 final playheadTime = SoLoud.instance.getPlayheadTime();
 
-// Estimated output latency (render-ahead ring depth plus one device period).
+// Internal software mix cushion (render-ahead ring depth plus one device period).
 // Returns Duration.zero when the ring is disabled or on web.
-final latency = SoLoud.instance.getOutputLatency();
+final outputLatency = SoLoud.instance.getOutputLatency();
+
+// External hardware presentation latency (OS audio pipeline, HAL/driver buffers,
+// DSP, and DAC on the active route: speakers, wired headphones, USB DAC, or Bluetooth).
+// Returns Duration.zero during warm-up or when unsupported by the active backend.
+final hardwareLatency = SoLoud.instance.getHardwareOutputLatency();
+
+// Total physical delay from an engine mix quantum to the listener's ear:
+final totalDelay = outputLatency + hardwareLatency;
 ```
+
+#### `getOutputLatency()` vs `getHardwareOutputLatency()`
+
+- **`getOutputLatency()`** measures SoLoud's **internal software mix cushion** (the render-ahead ring depth plus one device period). When the render-ahead ring is disabled (the default) or on web, it returns `Duration.zero`.
+- **`getHardwareOutputLatency()`** measures the **external physical path** from the moment audio samples leave SoLoud's device callback to when they are converted by the DAC and physically leave the transducer:
+  - **Android (AAudio)**: Computed from hardware presentation timestamps (`AAudioStream_getTimestamp`) against `CLOCK_MONOTONIC` using the native stream sample rate.
+  - **iOS**: Derived from `AVAudioSession.outputLatency + AVAudioSession.IOBufferDuration`.
+  - **macOS (CoreAudio)**: Derived from the active output device's `kAudioDevicePropertyLatency`, `kAudioDevicePropertySafetyOffset`, and AudioUnit latency.
+  - **Windows (WASAPI)**: Queried via `IAudioClient::GetStreamLatency`.
+  - **Web**: Queried from the active Web Audio `AudioContext` (`outputLatency + baseLatency`).
 
 ## Voice Protection
 
