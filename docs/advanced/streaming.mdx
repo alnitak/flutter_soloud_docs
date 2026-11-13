@@ -34,10 +34,11 @@ The *Opus* and *Ogg* libraries are embedded by default in flutter_soloud. Howeve
 
 ## Buffering Strategies
 
-The package provides two groups of streaming APIs:
+The package provides three groups of streaming APIs:
 
 - **Push buffers** — the classic `setBufferStream` API described on this page. You push audio data with `addAudioDataStream` and the engine manages playback.
-- **Pull buffers** — the newer `setPullBufferStream` API described in [Pull Buffer Streaming](./pull_buffer_streaming). The engine asks for data on demand via a callback, which is especially useful for large files, network streaming, and encrypted sources.
+- **Pull buffers** — the `setPullBufferStream` API described in [Pull Buffer Streaming](./pull_buffer_streaming). The engine asks for data on demand via a callback, which is especially useful for large files, network streaming, and encrypted sources.
+- **Real-Time SPSC Mixer Injection** — the `setRealtimeStream` API described in [Real-Time Audio Mixer Injection](./realtime_streaming). Built for ultra-low-latency live PCM synthesis, interactive instruments, and zero-GC `SoLoudIsolate` synthesis with instantaneous injection into the active hardware mixer window.
 
 ### Push Buffer Types
 
