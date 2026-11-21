@@ -55,12 +55,16 @@ SoLoud.instance.set3dListenerVelocity(0, 0, 0);
 
 // Or set all parameters at once
 SoLoud.instance.set3dListenerParameters(
-  posX: 0, posY: 0, posZ: 0,     // position
-  atX: 0, atY: 0, atZ: 1,        // looking direction
-  upX: 0, upY: 1, upZ: 0,        // up vector
-  velX: 0, velY: 0, velZ: 0,     // velocity
+  0, 0, 0, // position
+  0, 0, 1, // looking direction
+  0, 1, 0, // up vector
+  0, 0, 0, // velocity
 );
 ```
+
+<Info>
+All 3D methods throw `SoLoudNotInitializedException` before `init()`, and every position, velocity and 3D parameter throws an `ArgumentError` if it is NaN or infinite.
+</Info>
 
 ## Sound Source Control
 
@@ -100,6 +104,8 @@ SoLoud.instance.set3dSourceAttenuation(
   1.0,  // rolloff factor
 );
 ```
+
+By default a source uses `NO_ATTENUATION` with a rolloff factor of 1, and minimum and maximum distances of 1 and 1000000, so a 3D sound does not get quieter with distance until you set an attenuation model.
 
 Available attenuation models:
 - `0`: NO_ATTENUATION - No distance attenuation

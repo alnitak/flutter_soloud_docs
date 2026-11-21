@@ -57,7 +57,7 @@ When you want to start to play audio, you need to activate the audio session:
 
 ```dart
 await session.setActive(true);
-final handle = await SoLoud.instance.play(sound);
+final handle = SoLoud.instance.play(sound);
 ```
 
 ## Handling Interruptions

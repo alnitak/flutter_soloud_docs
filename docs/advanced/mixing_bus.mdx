@@ -26,6 +26,8 @@ final sfxBus = SoLoud.instance.createMixingBus(name: 'SFX');
 final musicBus = SoLoud.instance.createMixingBus(name: 'Music');
 ```
 
+`createMixingBus` throws `SoLoudNotInitializedException` if called before `init()`.
+
 ### 2. Play the Bus on the Engine
 
 A bus must be "played" on the main engine before its output becomes audible:
@@ -65,7 +67,7 @@ SoLoud.instance.setVolume(sfxBus.soundHandle!, 0.5);
 
 // Apply effects to the entire bus
 sfxBus.filters.echoFilter.activate();
-sfxBus.filters.echoFilter.delay.value = 0.3;
+sfxBus.filters.echoFilter.delay().value = 0.3;
 
 // Get the number of active voices on the bus
 final voiceCount = sfxBus.getActiveVoiceCount();
@@ -88,6 +90,10 @@ final sfxBus = Buses().byName('SFX');
 final bus = Buses().byId(1);
 ```
 
+<Info>
+A `Bus` is compared by identity: there is one `Bus` object per native bus. Every bus becomes invalid after `deinit()`, so create new buses after initializing the engine again.
+</Info>
+
 ### Disposing Buses
 
 When you're done with a bus, dispose it to free resources:
@@ -105,11 +111,13 @@ Move a live sound from one bus to another (or from the engine to a bus):
 
 ```dart
 // Play a sound on the main engine
-final handle = await SoLoud.instance.play(someSound);
+final handle = SoLoud.instance.play(someSound);
 
 // Later, move it to a bus
 sfxBus.annexSound(handle);
 ```
+
+`annexSound` does nothing while the bus is not playing (before `playOnEngine()` or after its voice has been stopped): the sound keeps playing where it was.
 
 This is useful for:
 - Dynamically grouping sounds at runtime
@@ -141,30 +149,35 @@ Apply filters to affect all sounds on a bus:
 ```dart
 // Activate pitch shift filter on the bus
 sfxBus.filters.pitchShiftFilter.activate();
-sfxBus.filters.pitchShiftFilter
-  ..shift(soundHandle: sfxBus.soundHandle).value = 1.5;
+sfxBus.filters.pitchShiftFilter.shift().value = 1.5;
 
 // Apply low-fi effect to all music
 musicBus.filters.lofiFilter.activate();
 musicBus.filters.lofiFilter
-  ..sampleRate.value = 8000
-  ..bitDepth.value = 4;
+  ..samplerate().value = 8000
+  ..bitdepth().value = 4;
 
 // Deactivate filters
 sfxBus.filters.pitchShiftFilter.deactivate();
 ```
+
+<Info>
+Bus filters can be activated before the bus plays, but their parameters can be set, read, faded or oscillated only after `playOnEngine()`: until then they throw a `SoLoudCppException`. Bus filter parameters are methods (`delay()`, `shift()`); their optional `soundHandle` argument is not needed for a bus and is not supported on Web.
+</Info>
 
 ## Channel Control
 
 Configure the number of output channels and monitor levels:
 
 ```dart
-// Set bus to mono or stereo (default is stereo)
+// Set the bus channel count (default is stereo)
 sfxBus.setChannels(channels: Channels.mono);
 
-// Get approximate output volume for VU meters
+// Get approximate output volume for VU meters.
+// It needs the bus visualization enabled, otherwise it reads 0.
+sfxBus.setVisualizationEnabled(true);
 final leftVolume = sfxBus.getChannelVolume(0);
-final rightVolume = sfxBus.getChannelVolume(1);
+final rightVolume = sfxBus.getChannelVolume(1); // 0 on a mono bus
 ```
 
 ## Complete Example
@@ -191,17 +204,17 @@ class AudioManager {
 
   Future<void> playMusic(String path) async {
     final music = await SoLoud.instance.loadAsset(path);
-    await musicBus.play(music, looping: true);
+    musicBus.play(music, looping: true);
   }
 
   Future<void> playSfx(String path) async {
     final sfx = await SoLoud.instance.loadAsset(path);
-    await sfxBus.play(sfx);
+    sfxBus.play(sfx);
   }
 
   Future<void> playVoice(String path) async {
     final voice = await SoLoud.instance.loadAsset(path);
-    await voiceBus.play(voice);
+    voiceBus.play(voice);
   }
 
   // Duck music when voice plays

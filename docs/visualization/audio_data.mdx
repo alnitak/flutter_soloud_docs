@@ -3,7 +3,7 @@ title: Audio Visualization
 description: Learn how to stream real-time wave and FFT audio data
 ---
 
-*flutter_soloud* provides high-performance, real-time audio visualization powered by [PFFFT](https://github.com/martonparlagh/pffft) and miniaudio. It delivers audio waveforms and frequency spectra directly to Dart through a reactive `Stream<AudioVisualizationData>`.
+*flutter_soloud* provides high-performance, real-time audio visualization powered by [PFFFT](https://bitbucket.org/jpommier/pffft) and miniaudio. It delivers audio waveforms and frequency spectra directly to Dart through a reactive `Stream<AudioVisualizationData>`.
 
 ## Setup & Enabling Visualization
 
@@ -32,7 +32,9 @@ SoLoud.instance.setVisualizationEnabled(
 | `enabled` | `bool` | *(required)* | Enables or disables the analyzer engine and callback stream. |
 | `windowSize` | `int` | `256` | FFT and Wave window size. Must be a power of two from **128** to **8192** (128, 256, 512, 1024, 2048, 4096, 8192). |
 | `kind` | `VisualizationKind` | `VisualizationKind.waveAndFft` | What data to compute: `wave` only, `fft` only, or `waveAndFft`. |
-| `channel` | `int` | `VisualizationChannel.merged` | Channel selection: `VisualizationChannel.merged` (-1), `VisualizationChannel.all` (-2), or a specific 0-based channel index (`0`, `1`, ...). |
+| `channel` | `int` | `VisualizationChannel.merged` | Channel selection: `VisualizationChannel.merged` (-1), `VisualizationChannel.all` (-2), or a specific 0-based channel index (`0`, `1`, ...) below the `channels` given to `init`. |
+
+Invalid parameters make `setVisualizationEnabled` throw a `SoLoudCppException`. To visualize a single mixing bus, use `Bus.setVisualizationEnabled` and `Bus.audioVisualizationEvents`.
 
 ## AudioVisualizationData
 
@@ -51,6 +53,7 @@ Here is a complete widget listening to `audioVisualizationEvents` and rendering 
 
 ```dart
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_soloud/flutter_soloud.dart';
 
@@ -205,8 +208,20 @@ To create smooth, aesthetically pleasing spectrum meters without erratic flicker
 SoLoud.instance.setFftSmoothing(0.85);
 ```
 
-The smoothing filter interpolates declining frequency bands using an exponential decay model:
-$$\text{band}_{t} = \text{smooth} \times \text{band}_{t-1} + (1 - \text{smooth}) \times \text{band}_t$$
+Smoothing is applied over time to the linear magnitude of each bin before it is converted to decibels (as in the Web Audio API `AnalyserNode`), where `X_t` is the new magnitude:
+$$\text{band}_{t} = \text{smooth} \times \text{band}_{t-1} + (1 - \text{smooth}) \times X_t$$
+
+Values outside `0.0..1.0` are clamped. The setting applies to the engine output and to every mixing bus.
+
+## FFT Decibel Range
+
+FFT magnitudes are normalized to `[0.0, 1.0]` over a decibel range, `-100` dB to `-30` dB by default (the Web Audio API defaults). Change it with `setFftDecibelRange` and read it back with `minDecibels` / `maxDecibels`:
+
+```dart
+SoLoud.instance.setFftDecibelRange(-90, -20);
+```
+
+It throws `ArgumentError` if a value is NaN or infinite, or if `minDecibels` is not less than `maxDecibels`.
 
 ## Window Sizes and Frequency Resolution
 
@@ -217,14 +232,3 @@ Window sizes must be powers of two between 128 and 8192:
 - **512**: 256 FFT bins. Great frequency detail for music visualizers.
 - **1024 / 2048**: 512 / 1024 FFT bins. High-resolution spectrum analysis.
 - **4096 / 8192**: Deep low-frequency resolution for studio tools.
-
-## Zero-Copy Memory Access (FFI)
-
-For performance-critical visualization in C/C++, Flutter shaders, or custom native renderers, `AudioVisualizationData` exposes direct C pointers without copying memory buffers:
-
-```dart
-final Pointer<Float>? wavePtr = data.wavePointer;
-final Pointer<Float>? fftPtr = data.fftPointer;
-```
-
-On Flutter Web, `Float32List` views are mapped directly to the WebAssembly linear memory heap (`wasmHeapF32`).

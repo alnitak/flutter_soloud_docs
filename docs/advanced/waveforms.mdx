@@ -14,11 +14,11 @@ The following waveform types are supported:
 - `saw` - Sawtooth wave oscillator
 - `sin` - Sine wave oscillator
 - `triangle` - Triangle wave oscillator
-- `bounce` - Bouncing ball effect
-- `jaws` - Increasing frequency sweep
-- `humps` - Multiple humps waveform
-- `fsquare` - Filtered square wave
-- `fsaw` - Filtered saw wave
+- `bounce` - Bounce, i.e. `abs(sin())`
+- `jaws` - Quarter sine wave, rest of the period quiet
+- `humps` - Half sine wave, rest of the period quiet
+- `fSquare` - "Fourier" square wave, less noisy than `square`
+- `fSaw` - "Fourier" saw wave, less noisy than `saw`
 
 ## Loading Waveforms
 
@@ -32,6 +32,8 @@ final sound = await SoLoud.instance.loadWaveform(
   0.0,              // detune
 );
 ```
+
+`loadWaveform` throws an `ArgumentError` if `scale` or `detune` is NaN or infinite.
 
 ## Controlling Waveforms
 
@@ -78,7 +80,7 @@ final tone = await SoLoud.instance.loadWaveform(
 );
 
 // Play the tone
-final handle = await SoLoud.instance.play(tone);
+final handle = SoLoud.instance.play(tone);
 
 // Fade out after 1 second
 SoLoud.instance.fadeVolume(
@@ -93,14 +95,14 @@ SoLoud.instance.fadeVolume(
 ```dart
 // Create a detuned super saw wave
 final richSound = await SoLoud.instance.loadWaveform(
-  WaveForm.fsaw,
+  WaveForm.fSaw,
   true,        // super wave enabled
   2.0,         // increased scale
   0.1,         // slight detune
 );
 
-// Play with frequency sweep
-final handle = await SoLoud.instance.play(richSound);
+// Play it and change its frequency
+final handle = SoLoud.instance.play(richSound);
 SoLoud.instance.setWaveformFreq(richSound, 220.0);
 ```
 
@@ -108,6 +110,6 @@ SoLoud.instance.setWaveformFreq(richSound, 220.0);
 
 - Use simple waveforms for basic sound effects
 - Combine super waves for richer sounds
-- Consider using filtered waveforms for smoother tones
+- Consider using the Fourier waveforms (`fSquare`, `fSaw`) for less noisy tones
 - Be careful with volume levels when using square waves
 - Use frequency sweeps for dynamic effects

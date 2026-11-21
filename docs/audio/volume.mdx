@@ -44,7 +44,8 @@ SoLoud.instance.setGlobalVolume(0.8); // 80% volume
 final globalVolume = SoLoud.instance.getGlobalVolume();
 
 /// Gets the approximate volume for output per output
-/// channel (i.e, per speaker).
+/// channel (i.e, per speaker). Requires setVisualizationEnabled(true),
+/// otherwise it reads 0.
 final outputVolumes = SoLoud.instance.getApproximateVolume(1 /* the channel index */);
 
 // Fade global volume
@@ -60,6 +61,10 @@ SoLoud.instance.oscillateGlobalVolume(
   Duration(seconds: 2), // oscillation period
 );
 ```
+
+<Info>
+Volumes, fade targets and oscillation limits must be finite: NaN or infinite values throw `ArgumentError`. Fades and oscillations on a handle that is no longer playing are silently ignored.
+</Info>
 
 ## Panning Control
 
@@ -121,12 +126,12 @@ await SoLoud.instance.init();
 SoLoud.instance.filters.limiterFilter.activate();
 
 // Optionally adjust limiter parameters
-// The wet parameter controls how much of the limited signal is used (0.0 to 1.0)
+// The output ceiling is the maximum output level in dB (-60 to 0)
 SoLoud.instance.filters.limiterFilter.outputCeiling.value = -6;
 
 // Now you can safely play multiple sounds without worrying about volume spikes
-sound1.play(sound, volume: 1.0);
-sound2.play(sound, volume: 1.0);
-sound3.play(sound, volume: 1.0);
+SoLoud.instance.play(sound1, volume: 1.0);
+SoLoud.instance.play(sound2, volume: 1.0);
+SoLoud.instance.play(sound3, volume: 1.0);
 ```
 </Card>

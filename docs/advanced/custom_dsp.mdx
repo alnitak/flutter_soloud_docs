@@ -222,7 +222,7 @@ Your callback should always write the **100% wet processed signal** into the buf
 
 ---
 
-## 2. Automated Compilation & FFI Bindings
+## 3. Automated Compilation & FFI Bindings
 
 ### Option A: Dart Native Assets (`hook/build.dart`)
 *(Recommended)*
@@ -290,9 +290,13 @@ final int filterAddress = getFilterAddr().address;
 
 ---
 
-## 3. Web Support (`dart:js_interop`)
+## 4. Web Support (`dart:js_interop`)
 
 On Web (Wasm), register your callbacks on `globalThis` using `dart:js_interop`:
+
+<Warning>
+A `webJsFunctionName` (for both `createCustomAudioSource` and `setNativeCallback`) works only with the **single-threaded** WASM build. The multi-threaded build (used automatically when the page is cross-origin isolated) renders audio in an AudioWorklet, which does not see the page's `globalThis`, so the source stays silent (or the filter has no effect) and a warning is logged. To force the single-threaded build, set `self.flutter_soloud_force_single_threaded = true;` in `web/index.html` before loading `init_soloud.js`.
+</Warning>
 
 ```dart
 import 'dart:js_interop';
@@ -328,7 +332,7 @@ void registerWebCallbacks() {
 
 ---
 
-## 4. Using in Flutter / Dart
+## 5. Using in Flutter / Dart
 
 ### Creating & Playing a Custom Audio Source
 
@@ -356,7 +360,7 @@ Future<void> playCustomSound() async {
 
 ### Configuring a Custom Filter Slot
 
-Attach up to **8 independent custom filter slots (`0..7`)** to any scope (Global, Mixing Bus, or Single Sound):
+Attach up to **8 independent custom filter slots (`0..7`)** to any scope (Global, Mixing Bus, or Single Sound). Parameters can be read and set only while the slot is active: on an inactive slot they throw `SoLoudFilterNotFoundException`, and an invalid parameter index throws `SoLoudInvalidParameterException`:
 
 ```dart
 Future<void> setupCustomFilter() async {

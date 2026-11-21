@@ -20,7 +20,7 @@ flowchart TD
     F -- No --> H["Default: Bundled Prebuilt Libraries<br/>(Packaged inside AAB/APK, IPA, APP, EXE)"]
 ```
 
-1. **Default Mode (Bundled Prebuilt Libraries)**: No configuration is required. *flutter_soloud* automatically links and packages tested, precompiled Xiph binaries from `xiph/prebuild/<platform>/`. This guarantees that packaged apps (Android AAB/APK, iOS IPA, macOS .app, Windows .exe) run out of the box with zero external dependencies and zero setup.
+1. **Default Mode (Bundled Prebuilt Libraries)**: No configuration is required. *flutter_soloud* automatically downloads tested, precompiled Xiph binaries from the [flutter_soloud_prebuilds](https://github.com/alnitak/flutter_soloud_prebuilds/releases) GitHub releases (cached in the plugin's `.dart_tool/flutter_soloud/xiph/prebuild/`), then links and packages them. This guarantees that packaged apps (Android AAB/APK, iOS IPA, macOS .app, Windows .exe) run out of the box with zero external dependencies and zero setup.
 2. **System Libraries Mode (`<platform>_use_system_libs: true`)**: Links against system-installed packages (apt, pacman, dnf, Homebrew, vcpkg). Ideal for Linux distribution packages (`.deb`, `.rpm`, Arch AUR).
 3. **Build from Source Mode (`<platform>_force_build_libs: true`)**: Clones the pinned Xiph Git repositories (`ogg`, `vorbis`, `opus`, `flac`) and builds them locally using CMake into `.dart_tool/flutter_soloud/xiph/install/<os>/<arch>` (or `install/ios/<simulator|device>/<arch>` on iOS).
 4. **Without Xiph Mode (`no_xiph_libs: true`)**: Skips Xiph libraries entirely across all platforms to reduce application binary size.
@@ -31,12 +31,12 @@ flowchart TD
 
 **No configuration is needed in your `pubspec.yaml`!**
 
-By default, the Dart build hook automatically links and bundles precompiled libraries from `xiph/prebuild/`:
+By default, the Dart build hook automatically downloads (on the first build) and caches the precompiled libraries in the plugin's `.dart_tool/flutter_soloud/xiph/prebuild/`, then links and bundles them:
 - **Android**: Bundles prebuilt shared `.so` files for all 4 architectures (`arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`) into your APK or AAB bundle under `lib/<abi>/`.
 - **iOS**: Links universal static `.a` archives covering physical devices (`arm64`) and simulators (`arm64`, `x86_64`) directly into the plugin binary.
 - **macOS**: Links universal static `.a` archives supporting both Apple Silicon (`arm64`) and Intel (`x86_64`) directly into `libflutter_soloud.dylib`. This ensures the `.app` or `.dmg` is self-contained and never crashes on user machines that lack Homebrew.
-- **Windows**: Bundles precompiled 64-bit (`x86_64`) `.dll` files next to the compiled executable. *(For Windows ARM64, use `windows_use_system_libs: true` or `windows_force_build_libs: true`)*.
-- **Linux**: Bundles precompiled 64-bit (`x86_64`) `.so` files alongside the application. *(For ARM Linux / Raspberry Pi, use `linux_use_system_libs: true` or `linux_force_build_libs: true`)*.
+- **Windows**: Bundles precompiled `x64` or `arm64` `.dll` files next to the compiled executable.
+- **Linux**: Bundles precompiled `x64` or `arm64` `.so` files alongside the application. *(For other architectures, such as 32-bit ARM, use `linux_use_system_libs: true` or `linux_force_build_libs: true`)*.
 
 ---
 
@@ -96,7 +96,7 @@ If you are on Windows and prefer to download prebuilt binaries manually:
 2. **Where to Place the Files**:
    When `windows_use_system_libs: true` is configured, the build hook searches:
    - `%VCPKG_ROOT%\installed\<arch>-windows\lib`
-   - `C:\vcpkg\installed\<arch>-windows\lib`
+   - `C:\vcpkg\installed\<arch>-windows\lib` (when `VCPKG_ROOT` is not set) and `C:\tools\vcpkg\installed\<arch>-windows\lib`
    - `C:\Program Files\Xiph\lib` and `C:\Program Files\Xiph\include`
    - `C:\Xiph\lib` and `C:\Xiph\include`
 
@@ -167,6 +167,7 @@ When built without Xiph:
 - The compiler defines `NO_XIPH_LIBS`.
 - No Xiph libraries are linked or bundled.
 - Compressed audio streaming with Opus/Vorbis/FLAC formats is disabled (`SoLoudXiphLibsNotAvailableException` is thrown if attempted).
-- All standard WAV, MP3, and synthesis features remain 100% operational.
+- Loading Ogg (Vorbis/Opus) files fails, and the Opus, Vorbis and FLAC mixer output encoders are unavailable.
+- WAV, MP3 and FLAC files (decoded by the built-in dr_libs) and synthesis features remain 100% operational.
 
 See [Without Xiph libs](/get_started/no_xiph_libs) for full details.

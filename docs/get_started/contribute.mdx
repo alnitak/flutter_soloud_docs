@@ -26,9 +26,9 @@ This plugin uses the following structure:
 * `src`: Contains the native C/C++ source code, filters, audio buffers, and SoLoud engine.
 * `src/bindings.h`: The single source of truth and ffigen entry point for the native C ABI.
 * `src/soloud`: Contains the SoLoud sources of the fork.
-* `hook`: Contains the [Dart build hooks](https://dart.dev/tools/hooks) (`hook/build.dart`, `hook/sources.dart`, `hook/xiph.dart`) that compile native code automatically for Android, iOS, macOS, Windows, and Linux into Code Assets.
+* `hook`: Contains the [Dart build hooks](https://dart.dev/tools/hooks) (`hook/build.dart`) that compile native code automatically for Android, iOS, macOS, Windows, and Linux into Code Assets.
 * `web`: Contains the scripts and assets for compiling and initializing the WebAssembly build on the Web platform.
-* `xiph`: Contains the prebuilt libraries and scripts for `ogg`, `opus`, `vorbis`, and `flac`.
+* `xiph`: Contains the sources and build scripts for `ogg`, `opus`, `vorbis`, and `flac` (the prebuilt libraries are downloaded by the build hook from the [flutter_soloud_prebuilds](https://github.com/alnitak/flutter_soloud_prebuilds/releases) releases).
 
 The `flutter_soloud` plugin utilizes a [forked](https://github.com/alnitak/soloud) repository of [SoLoud](https://github.com/jarikomppa/soloud), where the [miniaudio](https://github.com/mackron/miniaudio) audio backend is used by default.
 
@@ -48,7 +48,7 @@ Logger.root.level = Level.ALL;
 
 #### Audio Backends
 - **Apple (macOS/iOS)**: Uses `miniaudio` with CoreAudio / AVFAudio.
-- **Linux**: On Linux, `flutter_soloud` uses `miniaudio` with support for ALSA, PulseAudio, and JACK backends. By default, it prioritizes ALSA, then PulseAudio, then JACK (`LinuxAudioBackend.auto_`). You can choose or switch the backend at runtime via `SoLoud.instance.setLinuxAudioBackend(LinuxAudioBackend backend)` or by passing `linuxAudioBackend` to `SoLoud.instance.init()`.
+- **Linux**: On Linux, `flutter_soloud` uses `miniaudio` with support for ALSA, PulseAudio, and JACK backends. By default, it prioritizes ALSA, then PulseAudio, then JACK (`LinuxAudioBackend.auto`). You can choose or switch the backend at runtime via `SoLoud.instance.setLinuxAudioBackend(LinuxAudioBackend backend)` or by passing `linuxAudioBackend` to `SoLoud.instance.init()`.
 - **Windows**: Uses `miniaudio` with WASAPI.
 - **Android**: The default audio backend is `miniaudio`, which will automatically select the appropriate audio backend based on your Android version:
   - AAudio with Android 11.0 and newer.
@@ -56,7 +56,7 @@ Logger.root.level = Level.ALL;
 
 #### Web
 
-In the `web` directory, there is a `compile_wasm.sh` script that generates the `.js` and `.wasm` files for the native C code located in the `src` dir. Run it after installing *emscripten*. There is also a `compile_worker_and_init_module.sh` to compile the web worker needed by native code to communicate with Dart and the `init_soloud.dart` which initializes the WASM module. The default emscripten Module name is `Module_soloud` instead of the default `Module` to prevent some other WASM plugins from conflicting.
+In the `web` directory, there is a `compile_wasm.sh` script that generates the `.js` and `.wasm` files for the native C code located in the `src` dir. Run it after installing *emscripten*. There is also a `compile_worker_and_init_soloud.sh` (`.bat` on Windows) to compile the web worker needed by native code to communicate with Dart and the `init_soloud.dart` which initializes the WASM module. The default emscripten Module name is `Module_soloud` instead of the default `Module` to prevent some other WASM plugins from conflicting.
 
 The generated files are already provided, but if it is needed to modify C/C++ code or the `web/worker.dart` code, the scripts must be run to reflect the changes.
 

@@ -17,7 +17,7 @@ This script automatically picks the best WASM build for the current page (see be
 
 ## Two WASM builds: AudioWorklet when possible
 
-Since version 4.1.8, the plugin ships two WebAssembly builds and chooses between them at runtime:
+Since version 5.0.0, the plugin ships two WebAssembly builds and chooses between them at runtime:
 
 - **Multi-threaded (AudioWorklet)** — used when the page is **cross-origin isolated**, i.e. served with:
   ```http
@@ -66,6 +66,15 @@ If the headers are missing, you don't need to do anything: the plugin silently f
 
 For release builds, use `flutter build web` or `flutter build web --wasm` — the build command itself is unrelated to the headers; what matters is only whether your server sends them when serving the app.
 
+### Forcing the single-threaded build
+
+Custom audio sources (`createCustomAudioSource`) and custom filters (`setNativeCallback`) that use a `webJsFunctionName` work **only with the single-threaded build**: the multi-threaded build renders in an `AudioWorklet`, which does not see the page's `globalThis`, so the source stays silent (or the filter has no effect) and a warning is logged. To force the single-threaded build on a cross-origin isolated page, set the flag before `init_soloud.js` is loaded:
+
+```html
+<script>self.flutter_soloud_force_single_threaded = true;</script>
+<script src="assets/packages/flutter_soloud/web/init_soloud.js" defer></script>
+```
+
 ---
 
 **`loadUrl()`** may produce the following error when the app is run:
@@ -81,6 +90,7 @@ flutter run -d chrome --web-browser-flag '--disable-web-security' -t lib/main.da
 
 ***It is not possible to read a local audio file directly*** on the web. For this reason, `loadMem()` has been added, which requires the `Uint8List` byte buffer of the audio file.
 ***NOTE***: on the web the `mode` parameter of `loadMem()` is ignored (`LoadMode.disk` is not possible, since browsers cannot read from the local file system). The audio data is instead fed to the engine in chunks, yielding to the event loop between each chunk, so even large files should not freeze the UI.
+If the bytes cannot be decoded, `loadMem()` (and `loadUrl()`) throws `SoLoudFileLoadFailedException`.
 
 ---
 

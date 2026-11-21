@@ -22,8 +22,8 @@ Each loaded sound returns an `AudioSource` that must be managed:
 final sound = await SoLoud.instance.loadFile('path/to/sound.mp3');
 
 // Use the sound multiple times
-final handle1 = await SoLoud.instance.play(sound);
-final handle2 = await SoLoud.instance.play(sound);
+final handle1 = SoLoud.instance.play(sound);
+final handle2 = SoLoud.instance.play(sound);
 
 // Clean up when no longer needed
 await SoLoud.instance.disposeSource(sound);
@@ -66,12 +66,12 @@ final sound = await SoLoud.instance.loadFile('path/to/sound.mp3');
 sound.allInstancesFinished.first.then((_) {
   SoLoud.instance.disposeSource(sound);
 });
-await SoLoud.instance.play(sound);
+SoLoud.instance.play(sound);
 ```
 
 ### Automatic Disposal
 
-All `load*` methods support an `autoDispose` parameter that automatically disposes the audio source when all its handles have finished playing. This eliminates the need to manually call `disposeSource`.
+`loadFile`, `loadMem`, `loadAsset`, `loadUrl` and `joinTwoSources` support an `autoDispose` parameter that automatically disposes the audio source when all its handles have finished playing. This eliminates the need to manually call `disposeSource`.
 
 ```dart
 // This sound will be automatically disposed when playback finishes
@@ -79,7 +79,7 @@ final sound = await SoLoud.instance.loadFile(
   'path/to/sound.mp3',
   autoDispose: true,
 );
-await SoLoud.instance.play(sound);
+SoLoud.instance.play(sound);
 // No need to call disposeSource - it happens automatically!
 ```
 
@@ -199,20 +199,21 @@ final handle = SoLoud.instance.play(stereoSound);
 Supported audio formats:
 | Format | Extension | Description | Decoder Backend |
 |:--|:--|:--|:--|
-| MP3 | `.mp3` | Most common compressed format | Built-in (miniaudio) |
-| WAV | `.wav` | Uncompressed PCM audio | Built-in (SoLoud) |
+| MP3 | `.mp3` | Most common compressed format | Built-in (dr_mp3) |
+| WAV | `.wav` | Uncompressed PCM audio | Built-in (dr_wav) |
 | OGG | `.ogg`, `.opus` | Ogg container with Vorbis, Opus, or FLAC | Bundled Xiph libraries |
-| FLAC | `.flac` | Lossless compression | Bundled Xiph libraries |
+| FLAC | `.flac` | Lossless compression | Built-in (dr_flac) for files; Xiph libraries for streaming |
 | M4A | `.m4a` | MPEG-4 Audio (AAC/ALAC) | OS-native decoder |
-| MP4 | `.mp4` | Audio track from MP4 containers | OS-native decoder |
+| MP4 | `.mp4` | Audio track from MP4 containers (with a video track, the first audio track is played) | OS-native decoder |
 | AAC | `.aac` | Advanced Audio Coding (ADTS) | OS-native decoder |
 | AC-3 | `.ac3` | Dolby Digital | OS-native decoder |
 | E-AC-3 | `.eac3` | Dolby Digital Plus | OS-native decoder |
 
 <Info>
 - **Streaming Note:** MP4 and M4A containers are supported for file, asset, URL, and memory loading, but are **NOT supported for chunk streaming** (`setBufferStream` / `setPullBufferStream`). For real-time streaming, use elementary stream formats like AAC ADTS, AC-3, E-AC-3, OGG, MP3, WAV, or raw PCM.
+- **Ogg Opus channels:** Ogg Opus buffer streams with 3 to 8 channels are downmixed to stereo.
 - **Web Browser AC-3 / E-AC-3 Note:** AC-3 and E-AC-3 are **not supported on the Web platform in any browser**. Chrome and Firefox lack Dolby licensing, and Safari's WebCodecs engine rejects raw AC-3 elementary stream frames, while Web Audio API does not decode raw `.ac3` files. On the Web, attempt to load or stream AC-3/E-AC-3 returns `PlayerErrors.audioFormatNotSupported`. Use AAC, Opus, MP3, FLAC, WAV, or PCM on the Web.
-- **Linux Dependency Note:** On Linux, decoding M4A, MP4, AAC, AC-3, and E-AC-3 relies on FFmpeg shared libraries (`libavcodec` and `libavformat`) installed on the system (e.g. `sudo apt install ffmpeg libavcodec-extra`). Core formats (MP3, WAV, OGG, FLAC) work out of the box without FFmpeg. See [Linux Setup](/get_started/setup#extended-audio-formats-on-linux-m4a-mp4-aac-ac-3-e-ac-3).
+- **Linux Dependency Note:** On Linux, decoding M4A, MP4, AAC, AC-3, and E-AC-3 relies on FFmpeg 4.4 to 8 shared libraries (`libavcodec` and `libavformat`) installed on the system (e.g. `sudo apt install ffmpeg libavcodec-extra`); without them, loading these formats throws `SoLoudAudioFormatNotSupportedCppException`. Core formats (MP3, WAV, OGG, FLAC) work out of the box without FFmpeg. See [Linux Setup](/get_started/setup#extended-audio-formats-on-linux-m4a-mp4-aac-ac-3-e-ac-3).
 </Info>
 
 ## Best Practices
@@ -248,6 +249,8 @@ try {
   print('Initialize SoLoud first');
 } on SoLoudFileLoadFailedException {
   print('Could not load audio file');
+} on SoLoudAudioFormatNotSupportedCppException {
+  print('Format not supported on this platform');
 } catch (e) {
   print('Unexpected error: $e');
 }

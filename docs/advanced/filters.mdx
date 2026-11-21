@@ -5,24 +5,24 @@ description: Learn how to use audio effects and filters
 
 ## Overview
 
-*flutter_soloud* provides various audio effects and filters that can be applied globally to all sounds, to mixing buses, or individually to specific sound sources across all platforms including web.
+*flutter_soloud* provides various audio effects and filters that can be applied globally to all sounds, to mixing buses, or individually to specific sound sources. Global and mixing bus filters work on all platforms including Web; filters on a single sound are not supported on Web (they throw `SoLoudFilterForSingleSoundOnWebDartException`).
 
 ## Available Filters
 
-- `echo` - Echo/delay effect [SoLoud documentation](https://solhsa.com/soloud/echofilter.html)
+- `echoFilter` - Echo/delay effect [SoLoud documentation](https://solhsa.com/soloud/echofilter.html)
 - `freeverbFilter` - High quality reverb effect [SoLoud documentation](https://solhsa.com/soloud/freeverbfilter.html)
-- `biquadResonant` - Multi-mode filter (lowpass, highpass, bandpass) [SoLoud documentation](https://solhsa.com/soloud/biquadfilter.html)
-- `bassboost` - Low frequency enhancement [SoLoud documentation](https://solhsa.com/soloud/bassboostfilter.html)
-- `flanger` - Classic modulation effect [SoLoud documentation](https://solhsa.com/soloud/flangerfilter.html)
-- `waveShaper` - Audio distortion/wave shaping [SoLoud documentation](https://solhsa.com/soloud/waveshaperfilter.html)
-- `lofi` - Bit depth and sample rate reduction [SoLoud documentation](https://solhsa.com/soloud/lofifilter.html)
-- `robotize` - Voice modulation effect [SoLoud documentation](https://solhsa.com/soloud/robotizefilter.html)
-- `parametricEq` - N-band parametric equalizer (Gaussian bell curve response with gain, frequency, and Q controls) [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/parametric_eq_filter.cpp)
-- `pitchShifter` - Change pitch without affecting speed [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/pitch_shift_filter.cpp#L16)
-- `compressor` - Dynamic range compression [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/compressor.cpp#L24)
-- `limiter` - Peak volume control [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/limiter.cpp#L20)
-- `amplitudeModulator` - Multi-waveform ring modulator / amplitude modulator (`input * carrier(2π * frequency * t)` with Sine, Triangle, Square, and Saw waveforms) [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/amplitude_modulator_filter.cpp)
-- `customFilter(int id)` - User-programmable synchronous DSP filter supporting up to **8 independent instances (`id: 0..7`) per scope** with `wet` (`param[0]`) and up to 7 user parameters (`param(1)`..`param(7)`) configured with `CustomFilterParamSpec`, and automatic `wet = 0` hard bypass. See [Custom DSP & Audio Generators](/advanced/custom_dsp).
+- `biquadResonantFilter` (`biquadFilter` on sounds and buses) - Multi-mode filter (lowpass, highpass, bandpass) [SoLoud documentation](https://solhsa.com/soloud/biquadfilter.html)
+- `bassBoostFilter` - Low frequency enhancement [SoLoud documentation](https://solhsa.com/soloud/bassboostfilter.html)
+- `flangerFilter` - Classic modulation effect [SoLoud documentation](https://solhsa.com/soloud/flangerfilter.html)
+- `waveShaperFilter` - Audio distortion/wave shaping [SoLoud documentation](https://solhsa.com/soloud/waveshaperfilter.html)
+- `lofiFilter` - Bit depth and sample rate reduction [SoLoud documentation](https://solhsa.com/soloud/lofifilter.html)
+- `robotizeFilter` - Voice modulation effect [SoLoud documentation](https://solhsa.com/soloud/robotizefilter.html)
+- `parametricEqFilter` - N-band parametric equalizer (Gaussian bell curve response with gain, frequency, and Q controls) [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/parametric_eq_filter.cpp)
+- `pitchShiftFilter` - Change pitch without affecting speed [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/pitch_shift_filter.cpp#L16)
+- `compressorFilter` - Dynamic range compression [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/compressor.cpp#L24)
+- `limiterFilter` - Peak volume control [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/limiter.cpp#L20)
+- `amplitudeModulatorFilter` - Multi-waveform ring modulator / amplitude modulator (`input * carrier(2π * frequency * t)` with Sine, Triangle, Square, and Saw waveforms) [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/amplitude_modulator_filter.cpp)
+- `customFilter(int slotIndex)` - User-programmable synchronous DSP filter supporting up to **8 independent instances (`slotIndex: 0..7`) per scope** with `wet` (`param[0]`) and up to 7 user parameters (`param(1)`..`param(7)`) configured with `CustomFilterParamSpec`, and automatic `wet = 0` hard bypass. See [Custom DSP & Audio Generators](/advanced/custom_dsp).
 
 <Info>
 - *freeverb* supports only 2 channels. When using *freeverb* as a global filter, the engine should be initialized using the default 2 channels, and when using it as a sound filter it must be applied to 2-channel sounds.
@@ -65,6 +65,11 @@ filters.echoFilter.decay.oscillateFilterParameter(
 );
 ```
 
+<Info>
+- A value outside the parameter's `min`..`max` range, or NaN, is not applied: a warning is logged and the parameter keeps its value. `fadeFilterParameter` and `oscillateFilterParameter` throw an `ArgumentError` for NaN or infinite values.
+- Parameters can be set, read, faded or oscillated only while the filter is active: otherwise they throw `SoLoudFilterNotFoundException`. An invalid parameter index throws `SoLoudInvalidParameterException`.
+</Info>
+
 ## Common Filter Examples
 
 ### Echo Effect
@@ -75,7 +80,7 @@ filters.echoFilter.activate();
 filters.echoFilter
   ..delay.value = 0.2    // 200ms delay
   ..decay.value = 0.7    // 70% decay
-  ..filter.value = 1.0;  // No filtering
+  ..filter.value = 0.0;  // No filtering
 ```
 
 ### Parametric Equalizer
@@ -100,9 +105,9 @@ final freq = filters.parametricEqFilter.bandFrequency(0);
 
 ```dart
 // Enhance low frequencies
-filters.bassboostFilter.activate();
-filters.bassboostFilter
-  ..boost.value = 2.0;   // Double bass
+filters.bassBoostFilter.activate();
+filters.bassBoostFilter
+  ..boost.value = 2.0;   // Boost amount (0 - 10, default 2)
 ```
 
 ### Lo-Fi Effect
@@ -111,8 +116,8 @@ filters.bassboostFilter
 // Add retro sound quality
 filters.lofiFilter.activate();
 filters.lofiFilter
-  ..sampleRate.value = 8000   // 8kHz sampling
-  ..bitDepth.value = 4;       // 4-bit depth
+  ..samplerate.value = 8000   // 8kHz sampling
+  ..bitdepth.value = 4;       // 4-bit depth
 ```
 
 ### Reverb
@@ -122,7 +127,7 @@ filters.lofiFilter
 filters.freeverbFilter.activate();
 filters.freeverbFilter
   ..roomSize.value = 0.8    // Large room
-  ..damping.value = 0.5     // Medium damping
+  ..damp.value = 0.5        // Medium damping
   ..width.value = 1.0;      // Full stereo width
 ```
 
@@ -142,7 +147,7 @@ filters.freeverbFilter.roomSize.fadeFilterParameter(
 );
 
 // Oscillate damping
-filters.freeverbFilter.damping.oscillateFilterParameter(
+filters.freeverbFilter.damp.oscillateFilterParameter(
   from: 0.2,
   to: 0.8,
   time: Duration(milliseconds: 2000),

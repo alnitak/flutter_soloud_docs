@@ -28,14 +28,14 @@ final stream = SoLoud.instance.setPullBufferStream(
     // Fetch the next chunk starting at [offset].
     final chunk = await fetchAudioRange(offset, chunkSize);
 
-    final ret = SoLoud.instance.addPullBufferDataStream(
-      stream,
-      chunk,
-      offset: offset,
-    );
-
-    if (ret != PlayerErrors.noError) {
-      // Handle error
+    try {
+      SoLoud.instance.addPullBufferDataStream(
+        stream,
+        chunk,
+        offset: offset,
+      );
+    } on SoLoudCppException catch (e) {
+      // Handle error (e.g. the stream is no longer valid)
     }
   },
   onMetadata: (metadata) {
@@ -51,18 +51,24 @@ No explicit end-of-stream call is needed. When the engine has received enough se
 | Method | Purpose |
 |--------|---------|
 | `setPullBufferStream` | Creates a pull buffer stream. Requires the total audio size, the circular buffer size, and a trigger position. |
-| `addPullBufferDataStream` | Feeds a chunk of encoded data into the stream. The engine decodes it and writes the decoded samples into the circular buffer. When the sequential data reaches `audioSizeBytes`, the stream ends automatically. |
-| `getPullBufferTimeRange` | Returns the current decoded time range `(startTime, endTime)` in the circular buffer. The playhead is usually near the start of this range. |
+| `addPullBufferDataStream` | Feeds a chunk of encoded data into the stream. `offset` is the byte offset of the chunk in the original stream (0 appends the next sequential chunk). The engine decodes it and writes the decoded samples into the circular buffer. When the sequential data reaches `audioSizeBytes`, the stream ends automatically. Throws a `SoLoudCppException` if the data cannot be added (on all platforms, Web included; on Web, when called synchronously inside `onMoreDataIsNeeded`, the data is added after the callback returns and an error is only logged). |
+| `getPullBufferTimeRange` | Returns a record `(error, startTime, endTime)` with the decoded time range (as `Duration`s) currently in the circular buffer. The playhead is usually near the start of this range. |
+| `resetPullBufferStream` | Resets the pull buffer stream. |
 
 ### Parameters of `setPullBufferStream`
 
 | Parameter | Description |
 |-----------|-------------|
-| `audioSizeBytes` | Total size of the encoded audio source in bytes. This is needed for duration calculation and to know when the end has been reached. |
-| `bufferSizeBytes` | Size of the decoded circular buffer. This bounds the amount of decoded audio held in memory at any time. |
+| `audioSizeBytes` | Total size of the encoded audio source in bytes. This is needed for duration calculation and to know when the end has been reached. Required: `0` (the default) throws `SoLoudInvalidParameterException`. |
+| `bufferSizeBytes` | Size of the decoded circular buffer. This bounds the amount of decoded audio held in memory at any time. Default is 10 MB. Negative or absurdly large sizes make the call fail with an exception. |
 | `bufferTriggerPosition` | A value in `[0.0, 1.0]` that determines when `onMoreDataIsNeeded` is fired. When the amount of decoded audio ahead of the playhead is less than `(1.0 - bufferTriggerPosition) * bufferSizeBytes`, the callback is called. Default is `0.8`. |
+| `format` | Audio data format: `BufferType.auto` (default) or a raw PCM type (`f32le`, `s8`, `s16le`, `s32le`). |
+| `sampleRate`, `channels` | Used for raw PCM only (defaults 44100 and `Channels.stereo`); ignored with `BufferType.auto`. |
+| `autoDispose` | If `true`, the source is disposed automatically when all its handles have finished playing. Default `false`. |
 | `onMoreDataIsNeeded` | Callback invoked when the engine needs more encoded data. It receives the requested byte `offset`. |
+| `onBuffering` | Optional callback called when the engine starts (`isBuffering = true`) or stops buffering, with the handle and the time in seconds. |
 | `onMetadata` | Optional callback for metadata discovered during decoding. |
+| `onAudioDuration` | Optional callback called once with the total audio duration in seconds, when it has been determined (also for PCM formats, Web included). |
 
 ## How It Works
 
@@ -112,6 +118,7 @@ This is far smaller than the 10 GB file size. The actual memory usage depends on
 - **Playhead at the edge of the buffer**: the current position is always near the start of the decoded window, not in the middle of a large pre-buffered region.
 - **Decoder is eager**: incoming encoded data is decoded as soon as it is supplied, not strictly at the last moment. The trigger only controls when more encoded data is requested.
 - **Single playback instance**: the pull buffer is tied to one playback voice. Create a new stream for a new voice.
+- **Seeking past the end**: a seek to or past the end of the audio ends the sound.
 
 ## Example
 

@@ -299,6 +299,10 @@ SoLoud.instance.setRelativePlaySpeed(handle, 2.0); // Play twice as fast
 final speed = SoLoud.instance.getRelativePlaySpeed(handle);
 ```
 
+<Info>
+`setRelativePlaySpeed()` and the `volume`, `pan` and `scale` arguments of the `play*` methods throw `ArgumentError` for NaN or infinite values.
+</Info>
+
 ## Render-Ahead Ring (Native Only)
 
 The experimental **render-ahead ring** decouples the device buffer period from the engine's internal mixing quantum.
@@ -363,10 +367,12 @@ Protect important sounds from being stopped when voice limit is reached:
 SoLoud.instance.setProtectVoice(musicHandle, true);
 ```
 
+When the voice limit is reached, `play()` never stops a protected voice to make room. Protected voices still count toward the maximum active voice count.
+
 ## Voice Management
 
 ```dart
-// Set maximum number of concurrent sounds (default is 16)
+// Set maximum number of concurrent sounds (default is 16, max 1023)
 SoLoud.instance.setMaxActiveVoiceCount(32);
 
 // Get current number of playing sounds
