@@ -11,7 +11,7 @@ description: Learn how to use audio effects and filters
 
 - `echoFilter` - Echo/delay effect [SoLoud documentation](https://solhsa.com/soloud/echofilter.html)
 - `freeverbFilter` - High quality reverb effect [SoLoud documentation](https://solhsa.com/soloud/freeverbfilter.html)
-- `biquadResonantFilter` (`biquadFilter` on sounds and buses) - Multi-mode filter (lowpass, highpass, bandpass) [SoLoud documentation](https://solhsa.com/soloud/biquadfilter.html)
+- `biquadResonantFilter` (on sounds and buses the old name `biquadFilter` still works but is deprecated) - Multi-mode filter (lowpass, highpass, bandpass) [SoLoud documentation](https://solhsa.com/soloud/biquadfilter.html)
 - `bassBoostFilter` - Low frequency enhancement [SoLoud documentation](https://solhsa.com/soloud/bassboostfilter.html)
 - `flangerFilter` - Classic modulation effect [SoLoud documentation](https://solhsa.com/soloud/flangerfilter.html)
 - `waveShaperFilter` - Audio distortion/wave shaping [SoLoud documentation](https://solhsa.com/soloud/waveshaperfilter.html)
@@ -22,7 +22,7 @@ description: Learn how to use audio effects and filters
 - `compressorFilter` - Dynamic range compression [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/compressor.cpp#L24)
 - `limiterFilter` - Peak volume control [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/limiter.cpp#L20)
 - `amplitudeModulatorFilter` - Multi-waveform ring modulator / amplitude modulator (`input * carrier(2π * frequency * t)` with Sine, Triangle, Square, and Saw waveforms) [flutter_soloud source](https://github.com/alnitak/flutter_soloud/blob/main/src/filters/amplitude_modulator_filter.cpp)
-- `customFilter(int slotIndex)` - User-programmable synchronous DSP filter supporting up to **8 independent instances (`slotIndex: 0..7`) per scope** with `wet` (`param[0]`) and up to 7 user parameters (`param(1)`..`param(7)`) configured with `CustomFilterParamSpec`, and automatic `wet = 0` hard bypass. See [Custom DSP & Audio Generators](/advanced/custom_dsp).
+- `customFilter(int slotIndex)` - User-programmable synchronous DSP filter supporting up to **8 independent instances (`slotIndex: 0..7`) per scope** with `wet` (`param[0]`) and up to 15 user parameters (`param(1)`..`param(15)`) configured with `CustomFilterParamSpec`, and automatic `wet = 0` hard bypass. See [Custom DSP & Audio Generators](/advanced/custom_dsp).
 
 <Info>
 - *freeverb* supports only 2 channels. When using *freeverb* as a global filter, the engine should be initialized using the default 2 channels, and when using it as a sound filter it must be applied to 2-channel sounds.
@@ -68,6 +68,7 @@ filters.echoFilter.decay.oscillateFilterParameter(
 <Info>
 - A value outside the parameter's `min`..`max` range, or NaN, is not applied: a warning is logged and the parameter keeps its value. `fadeFilterParameter` and `oscillateFilterParameter` throw an `ArgumentError` for NaN or infinite values.
 - Parameters can be set, read, faded or oscillated only while the filter is active: otherwise they throw `SoLoudFilterNotFoundException`. An invalid parameter index throws `SoLoudInvalidParameterException`.
+- A parameter of a sound's filter needs the handle of the voice (`sound.filters.echoFilter.wet(soundHandle: handle)`): without it, it throws an `ArgumentError`.
 </Info>
 
 ## Common Filter Examples

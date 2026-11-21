@@ -8,7 +8,7 @@ description: Write synchronous zero-latency audio generators and multi-instance 
 For effects and instruments that require **zero ring-buffer latency** or sample-by-sample feedback loops—such as state-variable filters, wavefolders, distortion, physical modeling, custom oscillators, or integrating external C/C++/Rust DSP algorithms—*flutter_soloud* provides two synchronous callback APIs:
 
 1. **`createCustomAudioSource` (`CustomAudioSource`)**: A custom `SoLoud::AudioSource` whose callback is invoked directly by the SoLoud mixer on the real-time audio thread whenever it needs to render a block of audio samples.
-2. **`filters.customFilter(int id)` (`CustomFilterSlot`)**: A custom `SoLoud::Filter` that processes audio in-place inside any filter chain (**Global**, **Mixing Bus**, or **Single Sound**), supporting **up to 8 independent `CustomFilterSlot` instances (`id: 0..7`) on the same scope** with automatic dry/wet mixing, hard bypass, and up to 7 user-definable modulatable parameters.
+2. **`filters.customFilter(int id)` (`CustomFilterSlot`)**: A custom `SoLoud::Filter` that processes audio in-place inside any filter chain (**Global**, **Mixing Bus**, or **Single Sound**), supporting **up to 8 independent `CustomFilterSlot` instances (`id: 0..7`) on the same scope** with automatic dry/wet mixing, hard bypass, and up to 15 user-definable modulatable parameters.
 
 Both mechanisms work across all supported platforms:
 - **Android, iOS, macOS, Windows, Linux**: Native C, C++, or Rust callbacks compiled with Dart Native Assets (`hook/build.dart`) or precompiled into shared libraries, passed as raw memory addresses.
@@ -169,7 +169,7 @@ Processes audio in-place inside the filter chain:
 | `aChannels` | `unsigned int` | Number of audio channels passing through this filter. |
 | `aSamplerate` | `float` | Audio sample rate in Hz. |
 | `aTime` | `double` | Current audio engine time in seconds. |
-| `aParams` | `const float*` | Parameter values: `aParams[0]` is "Wet" ($0.0 \dots 1.0$), `aParams[1..7]` are user parameters from `CustomFilterParamSpec`. |
+| `aParams` | `const float*` | Parameter values: `aParams[0]` is "Wet" ($0.0 \dots 1.0$), `aParams[1..15]` are user parameters from `CustomFilterParamSpec`. |
 | `aParamChangedMask` | `uint64_t` | Bitmask of changed parameters (bit 0 = Wet changed, bit 1 = param 1 changed, etc.). |
 | `aParamCount` | `unsigned int` | Total count of valid parameter entries in `aParams`. |
 | `aUserData` | `void*` | Optional state pointer passed into `slot.setNativeCallback(userdataAddress: ...)`. |
@@ -193,7 +193,7 @@ MY_EXPORT void myCustomFilterDspCallback(
     (void)aUserData;
 
     // aParams[0] is hardcoded as "Wet" (0.0 to 1.0) - SoLoud handles wet/dry bypass automatically.
-    // aParams[1..7] correspond to your custom parameters configured in Flutter.
+    // aParams[1..15] correspond to your custom parameters configured in Flutter.
     float drive = (aParamCount > 1) ? aParams[1] : 2.5f;
 
     for (unsigned int ch = 0; ch < aChannels; ++ch) {
@@ -365,7 +365,7 @@ Attach up to **8 independent custom filter slots (`0..7`)** to any scope (Global
 ```dart
 Future<void> setupCustomFilter() async {
   final slot0 = SoLoud.instance.filters.customFilter(0)
-    // 1. Configure up to 7 user parameters (index 0 is reserved for 'Wet')
+    // 1. Configure up to 15 user parameters (index 0 is reserved for 'Wet')
     ..configureParameters(const [
       CustomFilterParamSpec(
         name: 'Drive',

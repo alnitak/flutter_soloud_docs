@@ -182,12 +182,12 @@ Future<void> hostVst3Effect() async {
 
 <Warning>
 **Global or Mixing Bus Scope Only:**
-VST3 effect instances hold stateful C++ delay lines, reverb tails, and editor controllers that belong to a single signal chain. Therefore, pass `Vst3Host.loadEffect` a **Global** (`SoLoud.instance.filters.customFilters[i]`) or **Mixing Bus** (`bus.filters.customFilters[i]`) slot, never a single-sound filter slot (`sound.filters.customFilters[i]`). To process a specific set of voices through a VST3 effect, route those voices through a [Mixing Bus](/advanced/mixing_bus).
+VST3 effect instances hold stateful C++ delay lines, reverb tails, and editor controllers that belong to a single signal chain. Therefore, pass `Vst3Host.loadEffect` a **Global** (`SoLoud.instance.filters.customFilters[i]`) or **Mixing Bus** (`bus.filters.customFilters[i]`) slot. A single-sound filter slot (`sound.filters.customFilters[i]`) throws an `ArgumentError`. To process a specific set of voices through a VST3 effect, route those voices through a [Mixing Bus](/advanced/mixing_bus).
 </Warning>
 
 ### Sample-Accurate Parameter Fades & LFO Oscillation
 
-Each `CustomFilterSlot` has 7 modulatable user parameters (`param[1]..param[7]`, index 0 is `wet`). You can map any 32-bit VST3 `ParamID` to one of those slot parameters using `mapToSlotParameter()` to drive the VST3 parameter with SoLoud's built-in C++ `Fader` and LFO engine:
+Each `CustomFilterSlot` has 15 modulatable user parameters (`param[1]..param[15]`, index 0 is `wet`). You can map any 32-bit VST3 `ParamID` to one of those slot parameters using `mapToSlotParameter()` to drive the VST3 parameter with SoLoud's built-in C++ `Fader` and LFO engine:
 
 ```dart
 // Map a VST3 parameter to CustomFilterSlot param[1]
