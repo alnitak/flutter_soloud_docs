@@ -219,7 +219,7 @@ Supported audio formats:
 ## Best Practices
 
 ### Memory Management
-- Reuse loaded sounds instead of loading multiple times
+- Reuse loaded sounds instead of loading multiple times: loading the same file, asset or URL again creates a second, independent sound with its own memory (and logs a warning)
 - Dispose sounds when no longer needed
 - Use `LoadMode.disk` for large background music files
 - Use `LoadMode.memory` for sound effects needing quick access

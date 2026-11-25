@@ -113,6 +113,35 @@ Available attenuation models:
 - `2`: LINEAR_DISTANCE - Linear distance attenuation
 - `3`: EXPONENTIAL_DISTANCE - Exponential distance attenuation
 
+## Defaults of a Sound
+
+The setters above act on one voice, through its handle, after `play3d` has created it. They have to be repeated after every `play3d`, and the voice can be heard for a moment without them.
+
+To give every voice of a sound the same 3D settings, set them once on the `AudioSource`:
+
+```dart
+final torch = await SoLoud.instance.loadAsset('assets/torch.ogg');
+
+SoLoud.instance.set3dDefaultAttenuation(torch, 2, 1);        // linear, rolloff 1
+SoLoud.instance.set3dDefaultMinMaxDistance(torch, 1, 30);
+SoLoud.instance.set3dDefaultDopplerFactor(torch, 1);
+
+// Every torch gets quieter with distance, with no call on its handle.
+SoLoud.instance.play3d(torch, x, y, z, looping: true);
+```
+
+A voice copies these values when it is created, so they hold from its first sample. This also works with `play3dClocked` and `play3dScheduled`, and while the automatic 3D update is disabled (see [Many Moving Sources](#many-moving-sources)).
+
+| Method | Sets | Default |
+| --- | --- | --- |
+| `set3dDefaultAttenuation(sound, attenuationModel, attenuationRolloffFactor)` | Attenuation model and rolloff factor | `0` (no attenuation), `1` |
+| `set3dDefaultMinMaxDistance(sound, minDistance, maxDistance)` | Minimum and maximum distance | `1`, `1000000` |
+| `set3dDefaultDopplerFactor(sound, dopplerFactor)` | Doppler factor | `1` |
+
+<Info>
+The defaults apply to voices started after the call. Voices of that sound that are already playing keep their values, and a `set3dSource*` setter still changes a single voice. Nothing happens if the sound is not loaded.
+</Info>
+
 ## Doppler Effect
 
 Control the doppler effect strength:
@@ -125,6 +154,46 @@ SoLoud.instance.set3dSourceDopplerFactor(handle, 1.0);
 SoLoud.instance.set3dSoundSpeed(343.0); // meters/second
 ```
 
+## Many Moving Sources
+
+By default every 3D setter (the `set3dListener*` and `set3dSource*` methods and `set3dSoundSpeed`) recomputes the panning, attenuation and doppler of all the 3D voices before it returns. A game that moves many sources calls these setters many times per frame, and each call is a full pass over the 3D voices.
+
+Disable the automatic update, and apply everything once per frame with `update3dAudio()`:
+
+```dart
+// Once, after init().
+SoLoud.instance.set3dAutoUpdate(false);
+
+// Every frame.
+void update(double dt) {
+  SoLoud.instance.set3dListenerParameters(
+    cam.x, cam.y, cam.z,
+    cam.forwardX, cam.forwardY, cam.forwardZ,
+    cam.upX, cam.upY, cam.upZ,
+    cam.velX, cam.velY, cam.velZ,
+  );
+  for (final e in movingEmitters) {
+    SoLoud.instance.set3dSourceParameters(
+      e.handle, e.x, e.y, e.z, e.vx, e.vy, e.vz,
+    );
+  }
+  // One pass for the listener and all the sources.
+  SoLoud.instance.update3dAudio();
+}
+```
+
+| Method | Description |
+| --- | --- |
+| `set3dAutoUpdate(bool enabled)` | `true` (default): every 3D setter applies its change at once. `false`: the setters only store their values. Passing `true` applies what was stored. |
+| `get3dAutoUpdate()` | The current mode. |
+| `update3dAudio()` | Applies the stored values to all the 3D voices in one pass. Needed only after `set3dAutoUpdate(false)`. |
+
+<Warning>
+With `set3dAutoUpdate(false)` nothing is heard of a setter until `update3dAudio()` is called: without it the sources and the listener seem frozen. `init()` restores the automatic update, so disable it again after every `init()`.
+</Warning>
+
+`play3d` and its variants place a new voice by themselves in both modes, using the values passed to the call, the listener values set so far and the [defaults of the sound](#defaults-of-a-sound). What is set on the handle of the voice afterwards waits for `update3dAudio()` like any other setter.
+
 ## Best Practices
 
 - Keep coordinate scales consistent throughout your application
@@ -132,4 +201,6 @@ SoLoud.instance.set3dSoundSpeed(343.0); // meters/second
 - Use appropriate attenuation models for your game/app scale
 - Consider performance when using many 3D sound sources
 - Set appropriate minimum/maximum distances for your scale
+- Set the attenuation of a sound once with `set3dDefaultAttenuation` and `set3dDefaultMinMaxDistance` instead of repeating the handle setters after every `play3d`
+- With many moving sources, use `set3dAutoUpdate(false)` and one `update3dAudio()` per frame
 - Use doppler effects sparingly for better performance
